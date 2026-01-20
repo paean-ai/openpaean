@@ -1,266 +1,60 @@
 /**
- * Color Theme System
- * Unified semantic color definitions with NO_COLOR support
+ * Theme configuration
+ * Centralized styling for the CLI
  */
 
-/**
- * Check if colors are supported
- */
-export function supportsColor(): boolean {
-    return process.env.NO_COLOR === undefined &&
-        process.stdout.isTTY &&
-        process.env.TERM !== 'dumb';
-}
+import chalk from 'chalk';
+import { BRAND_COLORS } from './branding.js';
 
-/**
- * ANSI color codes
- */
-const ANSI = {
-    reset: '\x1b[0m',
-    bold: '\x1b[1m',
-    dim: '\x1b[2m',
+// Re-export specific brand colors for usage
+export const PAEAN_BLUE = BRAND_COLORS.primary;
 
-    // Foreground colors
-    black: '\x1b[30m',
-    red: '\x1b[31m',
-    green: '\x1b[32m',
-    yellow: '\x1b[33m',
-    blue: '\x1b[34m',
-    magenta: '\x1b[35m',
-    cyan: '\x1b[36m',
-    white: '\x1b[37m',
-    brightBlack: '\x1b[90m',
-    brightRed: '\x1b[91m',
-    brightGreen: '\x1b[92m',
-    brightYellow: '\x1b[93m',
-    brightBlue: '\x1b[94m',
-    brightMagenta: '\x1b[95m',
-    brightCyan: '\x1b[96m',
-    brightWhite: '\x1b[97m',
+// Styled functions using Chalk
+export const primary = chalk.hex(BRAND_COLORS.primary);
+export const primaryBold = chalk.hex(BRAND_COLORS.primary).bold;
+export const secondary = chalk.hex(BRAND_COLORS.secondary);
+export const success = chalk.hex(BRAND_COLORS.success);
+export const warning = chalk.hex(BRAND_COLORS.warning);
+export const error = chalk.hex(BRAND_COLORS.error);
+export const dummy = chalk.gray; // Placeholder
+export const muted = chalk.hex(BRAND_COLORS.muted);
+export const dim = chalk.dim;
+export const bold = chalk.bold;
+export const italic = chalk.italic;
+
+// Component styles
+export const link = chalk.underline.hex(BRAND_COLORS.primaryLight);
+export const code = chalk.bgHex('#1e1e1e').hex('#d4d4d4');
+export const highlight = chalk.bgHex(BRAND_COLORS.primary).black;
+
+// Status indicators
+export const symbols = {
+    info: primary('ℹ'),
+    success: success('✔'),
+    warning: warning('⚠'),
+    error: error('✖'),
+    arrow: primary('➜'),
+    bullet: muted('•'),
+    pointer: primary('❯'),
+    checkboxOn: success('◉'),
+    checkboxOff: muted('○'),
 };
 
-/**
- * Semantic color definitions
- */
-export const COLORS = {
-    // Status colors with semantic meaning
-    success: {
-        code: ANSI.brightGreen,
-        symbol: '✓',
-    },
-    error: {
-        code: ANSI.brightRed,
-        symbol: '✗',
-    },
-    warning: {
-        code: ANSI.brightYellow,
-        symbol: '⚠',
-    },
-    info: {
-        code: ANSI.brightCyan,
-        symbol: 'ℹ',
-    },
-
-    // Brand colors
-    primary: {
-        code: ANSI.brightMagenta,  // AI brand color
-        symbol: '◆',
-    },
-    secondary: {
-        code: ANSI.brightBlue,     // Accent color
-        symbol: '◇',
-    },
-
-    // Text colors
-    text: {
-        code: ANSI.white,
-    },
-    textDim: {
-        code: ANSI.brightBlack,
-    },
-
-    // Special indicators
-    mcp: {
-        code: ANSI.brightMagenta,
-        symbol: '🔗',
-    },
-    tool: {
-        code: ANSI.brightYellow,
-        symbol: '⚙',
-    },
-    thinking: {
-        code: ANSI.brightCyan,
-        symbol: '⋯',
-    },
-};
+// Application specific symbols
+export const mcpSymbol = () => chalk.hex('#f59e0b')('⚡'); // Amber lightning for tools/MCP
+export const toolSymbol = () => chalk.hex('#8b5cf6')('🔧'); // Violet wrench for tools
 
 /**
- * Color utility functions
+ * Format a styled message block
  */
-
-/**
- * Apply a color code to text (only if colors are supported)
- */
-export function colorize(text: string, colorCode: string): string {
-    if (!supportsColor()) {
-        return text;
-    }
-    return `${colorCode}${text}${ANSI.reset}`;
+export function styledMessage(type: 'info' | 'success' | 'warning' | 'error', text: string): string {
+    const symbol = symbols[type];
+    return `${symbol} ${text}`;
 }
 
-/**
- * Apply bold style
- */
-export function bold(text: string): string {
-    if (!supportsColor()) {
-        return text;
-    }
-    return `${ANSI.bold}${text}${ANSI.reset}`;
-}
+// Export branding assets
+export { getLogoAscii, getCompactLogo } from './branding.js';
+export { BRAND_COLORS };
 
-/**
- * Apply dim style
- */
-export function dim(text: string): string {
-    if (!supportsColor()) {
-        return text;
-    }
-    return `${ANSI.dim}${text}${ANSI.reset}`;
-}
-
-/**
- * Semantic color functions
- */
-
-/**
- * Style text as success
- */
-export function success(text: string): string {
-    return colorize(text, COLORS.success.code);
-}
-
-/**
- * Style text as error
- */
-export function error(text: string): string {
-    return colorize(text, COLORS.error.code);
-}
-
-/**
- * Style text as warning
- */
-export function warning(text: string): string {
-    return colorize(text, COLORS.warning.code);
-}
-
-/**
- * Style text as info
- */
-export function info(text: string): string {
-    return colorize(text, COLORS.info.code);
-}
-
-/**
- * Style text as primary (brand)
- */
-export function primary(text: string): string {
-    return colorize(text, COLORS.primary.code);
-}
-
-/**
- * Style text as secondary (accent)
- */
-export function secondary(text: string): string {
-    return colorize(text, COLORS.secondary.code);
-}
-
-/**
- * Style text as dim
- */
-export function muted(text: string): string {
-    return dim(text);
-}
-
-/**
- * Get success symbol (with or without color)
- */
-export function successSymbol(): string {
-    return colorize(COLORS.success.symbol, COLORS.success.code);
-}
-
-/**
- * Get error symbol (with or without color)
- */
-export function errorSymbol(): string {
-    return colorize(COLORS.error.symbol, COLORS.error.code);
-}
-
-/**
- * Get warning symbol (with or without color)
- */
-export function warningSymbol(): string {
-    return colorize(COLORS.warning.symbol, COLORS.warning.code);
-}
-
-/**
- * Get info symbol (with or without color)
- */
-export function infoSymbol(): string {
-    return colorize(COLORS.info.symbol, COLORS.info.code);
-}
-
-/**
- * Get MCP tool symbol
- */
-export function mcpSymbol(): string {
-    return colorize(COLORS.mcp.symbol, COLORS.mcp.code);
-}
-
-/**
- * Get tool symbol
- */
-export function toolSymbol(): string {
-    return colorize(COLORS.tool.symbol, COLORS.tool.code);
-}
-
-/**
- * Get thinking symbol
- */
-export function thinkingSymbol(): string {
-    return colorize(COLORS.thinking.symbol, COLORS.thinking.code);
-}
-
-/**
- * Create a styled message with dual encoding (color + symbol)
- */
-export function styledMessage(
-    type: 'success' | 'error' | 'warning' | 'info',
-    message: string
-): string {
-    const color = COLORS[type];
-    return colorize(`${color.symbol} ${message}`, color.code);
-}
-
-/**
- * Export theme as object for convenience
- */
-export const theme = {
-    colorize,
-    bold,
-    dim,
-    success,
-    error,
-    warning,
-    info,
-    primary,
-    secondary,
-    muted,
-    successSymbol,
-    errorSymbol,
-    warningSymbol,
-    infoSymbol,
-    mcpSymbol,
-    toolSymbol,
-    thinkingSymbol,
-    styledMessage,
-};
+// Additional styles
+export const info = chalk.hex(BRAND_COLORS.primaryLight);

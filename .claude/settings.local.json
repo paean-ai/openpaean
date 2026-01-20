@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "WebSearch",
+      "Bash(bun run build:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npm publish --access public)",
+      "Bash(git push:*)"
+    ]
+  }
+}

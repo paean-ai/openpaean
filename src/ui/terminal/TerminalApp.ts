@@ -15,7 +15,20 @@ import {
     showCursor,
 } from './output.js';
 import { type StatusBarState } from './StatusBar.js';
-import { primary, success, error as errorColor, warning, info, muted, styledMessage, mcpSymbol, toolSymbol } from '../theme/index.js';
+import {
+    primary,
+    success,
+    error as errorColor,
+    warning,
+    info,
+    muted,
+    styledMessage,
+    mcpSymbol,
+    toolSymbol,
+    getLogoAscii,
+    getCompactLogo,
+    bold
+} from '../theme/index.js';
 
 /**
  * Command result type
@@ -92,6 +105,7 @@ export class TerminalApp {
     private agentService: AgentService;
     private options: TerminalAppOptions;
     private streamBuffer: string[] = [];
+    private currentConversationId: string | null = null;
     private streamingMessageId: string | null = null;
 
     // MCP tool count
@@ -102,6 +116,164 @@ export class TerminalApp {
         ) || 0;
     }
 
+    // ... existing properties ...
+
+    /**
+     * Handle slash commands
+     */
+    private handleCommand(input: string): CommandResult {
+        const cmd = input.toLowerCase().trim();
+
+        switch (cmd) {
+            case '/exit':
+            case '/quit':
+            case '/q':
+                return { handled: true, action: 'exit' };
+
+            case '/clear':
+            case '/cls':
+                console.clear();
+                this.printWelcome();
+                return { handled: true, action: 'clear' };
+
+            case '/reset':
+            case '/new':
+                this.currentConversationId = null;
+                this.messages = [];
+                console.clear();
+                this.printWelcome();
+                console.log(success('  Started new conversation context.'));
+                return { handled: true, action: 'clear' };
+
+            case '/help':
+            case '/h':
+            case '/?':
+                return {
+                    handled: true,
+                    output: this.getHelpText(),
+                };
+
+            case '/debug':
+                this.statusState.isDebugMode = !this.statusState.isDebugMode;
+                return {
+                    handled: true,
+                    output: `Debug mode: ${this.statusState.isDebugMode ? 'ON' : 'OFF'}`,
+                };
+
+            case '/raw':
+                this.statusState.isRawMode = !this.statusState.isRawMode;
+                let output = `Raw mode: ${this.statusState.isRawMode ? 'ON' : 'OFF'}`;
+                if (this.statusState.isRawMode) {
+                    output += '\nAgent will return plain text (no markdown)';
+                }
+                return { handled: true, output };
+
+            case '/mcp':
+                return { handled: true, output: this.getMcpStatus() };
+
+            default:
+                return {
+                    handled: true,
+                    output: errorColor(`Unknown command: ${cmd}\nType /help for available commands`),
+                };
+        }
+    }
+
+    /**
+     * Get help text
+     */
+    private getHelpText(): string {
+        return `
+${info('Available Commands:')}
+
+  ${success('/exit, /quit, /q')}    Exit the chat session
+  ${success('/clear, /cls')}        Clear the screen
+  ${success('/reset, /new')}        Start a new conversation
+  ${success('/help, /h, /?')}       Show this help message
+  ${success('/debug')}              Toggle debug mode
+  ${success('/raw')}                Toggle raw output mode (no markdown)
+  ${success('/mcp')}                Show MCP connection status
+
+${info('Shortcuts:')}
+  ${warning('Ctrl+C')}             Exit or abort current operation
+  ${warning('Ctrl+R')}             Search command history
+  ${warning('Tab')}                Command completion
+
+${info('Terminal:')}
+  Use your terminal's scroll to view message history.
+  All messages remain visible after exit.
+`;
+    }
+
+    // ... existing methods ...
+
+    /**
+     * Process a message through the agent
+     */
+    private async processMessage(message: string): Promise<void> {
+        this.isProcessing = true;
+        this.updatePrompt();
+
+        // Create streaming message
+        this.streamingMessageId = this.generateId();
+        this.streamBuffer = [];
+
+        try {
+            const { abort } = await this.agentService.streamMessage(
+                message,
+                {
+                    onContent: (text, partial) => {
+                        this.handleStreamContent(text, partial);
+                    },
+                    onToolCall: (id, name) => {
+                        this.handleToolCall(id, name);
+                    },
+                    onToolResult: (id, name, result) => {
+                        this.handleToolResult(id, name, result);
+                    },
+                    onMcpToolCall: async (callId, serverName, toolName, args) => {
+                        return this.handleMcpToolCall(callId, serverName, toolName, args);
+                    },
+                    onDone: (conversationId) => {
+                        this.handleStreamDone(conversationId);
+                    },
+                    onError: (error) => {
+                        this.handleError(error);
+                    },
+                },
+                {
+                    conversationId: this.currentConversationId || undefined,
+                    mcpState: this.options.mcpState,
+                    cliMode: this.statusState.isRawMode ? { enabled: true, streamRaw: true } : undefined,
+                }
+            );
+
+            this.currentAbort = abort;
+        } catch (error) {
+            this.handleError((error as Error).message);
+        } finally {
+            this.isProcessing = false;
+            this.currentAbort = null;
+            this.streamingMessageId = null;
+            this.updatePrompt();
+            this.rl.prompt();
+        }
+    }
+
+    // ... existing methods ...
+
+    /**
+     * Handle stream done
+     */
+    private handleStreamDone(conversationId: string): void {
+        // Update current conversation ID to maintain context
+        if (conversationId && !this.currentConversationId) {
+            this.currentConversationId = conversationId;
+            if (this.statusState.isDebugMode) {
+                console.log(muted(`[Context set to ${conversationId}]`));
+            }
+        }
+    }
     constructor(options: TerminalAppOptions = {}) {
         this.options = options;
         this.statusState.mcpToolCount = this.mcpToolCount;
@@ -190,20 +362,27 @@ export class TerminalApp {
      */
     private printWelcome(): void {
         const width = getTerminalWidth();
-        const line = '─'.repeat(Math.min(width, 60));
+        // Use Paean Blue for the divider
+        const line = primary('─'.repeat(Math.min(width, 60)));
 
-        console.log(muted(line));
-        console.log(primary('  OpenPaean AI Agent'));
+        console.log('');
+        // Print ASCII Logo
+        console.log(primary(getLogoAscii()));
+
+        console.log(line);
+        console.log(bold('  Interactive Agent Session'));
         console.log(muted('  Type /help for commands, Ctrl+C to exit'));
-        console.log(muted(line));
+        console.log(line);
+        console.log('');
     }
 
     /**
      * Update the prompt with status hints
      */
     private updatePrompt(): void {
-        // Simple prompt without hints - hints shown separately
-        this.rl.setPrompt(colorize('> ', ANSI.brightCyan));
+        // Paean-styled prompt
+        const promptSymbol = this.isProcessing ? '⧖ ' : '◉ ';
+        this.rl.setPrompt(primary(promptSymbol));
     }
 
     /**
@@ -261,82 +440,7 @@ export class TerminalApp {
         await this.processMessage(input);
     }
 
-    /**
-     * Handle slash commands
-     */
-    private handleCommand(input: string): CommandResult {
-        const cmd = input.toLowerCase().trim();
 
-        switch (cmd) {
-            case '/exit':
-            case '/quit':
-            case '/q':
-                return { handled: true, action: 'exit' };
-
-            case '/clear':
-            case '/cls':
-                console.clear();
-                this.printWelcome();
-                return { handled: true, action: 'clear' };
-
-            case '/help':
-            case '/h':
-            case '/?':
-                return {
-                    handled: true,
-                    output: this.getHelpText(),
-                };
-
-            case '/debug':
-                this.statusState.isDebugMode = !this.statusState.isDebugMode;
-                return {
-                    handled: true,
-                    output: `Debug mode: ${this.statusState.isDebugMode ? 'ON' : 'OFF'}`,
-                };
-
-            case '/raw':
-                this.statusState.isRawMode = !this.statusState.isRawMode;
-                let output = `Raw mode: ${this.statusState.isRawMode ? 'ON' : 'OFF'}`;
-                if (this.statusState.isRawMode) {
-                    output += '\nAgent will return plain text (no markdown)';
-                }
-                return { handled: true, output };
-
-            case '/mcp':
-                return { handled: true, output: this.getMcpStatus() };
-
-            default:
-                return {
-                    handled: true,
-                    output: errorColor(`Unknown command: ${cmd}\nType /help for available commands`),
-                };
-        }
-    }
-
-    /**
-     * Get help text
-     */
-    private getHelpText(): string {
-        return `
-${info('Available Commands:')}
-
-  ${success('/exit, /quit, /q')}    Exit the chat session
-  ${success('/clear, /cls')}        Clear the screen
-  ${success('/help, /h, /?')}       Show this help message
-  ${success('/debug')}              Toggle debug mode
-  ${success('/raw')}                Toggle raw output mode (no markdown)
-  ${success('/mcp')}                Show MCP connection status
-
-${info('Shortcuts:')}
-  ${warning('Ctrl+C')}             Exit or abort current operation
-  ${warning('Ctrl+R')}             Search command history
-  ${warning('Tab')}                Command completion
-
-${info('Terminal:')}
-  Use your terminal's scroll to view message history.
-  All messages remain visible after exit.
-`;
-    }
 
     /**
      * Get MCP status
@@ -356,57 +460,7 @@ ${info('Terminal:')}
         return status;
     }
 
-    /**
-     * Process a message through the agent
-     */
-    private async processMessage(message: string): Promise<void> {
-        this.isProcessing = true;
-        this.updatePrompt();
 
-        // Create streaming message
-        this.streamingMessageId = this.generateId();
-        this.streamBuffer = [];
-
-        try {
-            const { abort } = await this.agentService.streamMessage(
-                message,
-                {
-                    onContent: (text, partial) => {
-                        this.handleStreamContent(text, partial);
-                    },
-                    onToolCall: (id, name) => {
-                        this.handleToolCall(id, name);
-                    },
-                    onToolResult: (id, name, result) => {
-                        this.handleToolResult(id, name, result);
-                    },
-                    onMcpToolCall: async (callId, serverName, toolName, args) => {
-                        return this.handleMcpToolCall(callId, serverName, toolName, args);
-                    },
-                    onDone: (conversationId) => {
-                        this.handleStreamDone(conversationId);
-                    },
-                    onError: (error) => {
-                        this.handleError(error);
-                    },
-                },
-                {
-                    mcpState: this.options.mcpState,
-                    cliMode: this.statusState.isRawMode ? { enabled: true, streamRaw: true } : undefined,
-                }
-            );
-
-            this.currentAbort = abort;
-        } catch (error) {
-            this.handleError((error as Error).message);
-        } finally {
-            this.isProcessing = false;
-            this.currentAbort = null;
-            this.streamingMessageId = null;
-            this.updatePrompt();
-            this.rl.prompt();
-        }
-    }
 
     /**
      * Handle streaming content
@@ -419,7 +473,8 @@ ${info('Terminal:')}
         if (partial) {
             // First chunk - write prefix
             if (this.streamBuffer.length === 1) {
-                process.stdout.write('\n' + primary('OpenPaean: '));
+                // Use compact logo or just "Paean" in brand color
+                process.stdout.write('\n' + getCompactLogo() + ': ');
             }
             // Write the content chunk
             process.stdout.write(text);
@@ -492,13 +547,7 @@ ${info('Terminal:')}
         }
     }
 
-    /**
-     * Handle stream done
-     */
-    private handleStreamDone(_conversationId: string): void {
-        // Stream complete - handled by the last partial=false content event
-        // No action needed here
-    }
+
 
     /**
      * Handle error
@@ -545,7 +594,7 @@ ${info('Terminal:')}
      * Exit the application
      */
     exit(): void {
-        console.log(primary('\n👋 Goodbye!\n'));
+        console.log(bold(primary('\n👋 Goodbye!\n')));
         this.cleanup();
         process.exit(0);
     }
