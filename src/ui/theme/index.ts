@@ -43,6 +43,7 @@ export const symbols = {
 // Application specific symbols
 export const mcpSymbol = () => chalk.hex('#f59e0b')('⚡'); // Amber lightning for tools/MCP
 export const toolSymbol = () => chalk.hex('#8b5cf6')('🔧'); // Violet wrench for tools
+export const thinkingSymbol = () => primary('⧖'); // Thinking hourglass symbol
 
 /**
  * Format a styled message block
