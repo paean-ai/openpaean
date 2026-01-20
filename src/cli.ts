@@ -26,11 +26,11 @@ const program = new Command();
 
 program
   .name('openpaean')
-  .description('OpenPaean - Open source AI agent with fullscreen TUI and MCP integration')
+  .description('OpenPaean - Open source AI agent with scrolling TUI (Claude Code style) and MCP integration')
   .version(packageJson.version)
   .option('--config', 'Show config file path')
   .option('--no-mcp', 'Disable local MCP server integration')
-  .option('--no-fullscreen', 'Disable fullscreen mode')
+  .option('--fullscreen', 'Enable fullscreen mode (default: scrolling mode)')
   .option('-d, --debug', 'Enable debug logging')
   .option('-m, --message <message>', 'Send a single message to agent')
   .action(async (options) => {
@@ -42,7 +42,7 @@ program
     // Default action: start agent mode
     await runAgentMode({
       mcp: options.mcp !== false,
-      fullscreen: options.fullscreen !== false,
+      fullscreen: options.fullscreen === true,
       debug: options.debug,
       message: options.message,
     });

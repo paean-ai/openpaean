@@ -6,14 +6,14 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { isAuthenticated } from '../utils/config.js';
-import { startChat, startFullscreenChat } from '../agent/chat.ink.js';
+import { startScrollingChat, startFullscreenChat } from '../agent/chat.ink.js';
 import { McpClient } from '../mcp/client.js';
 import type { McpState, McpToolResult } from '../agent/types.js';
 
 export const agentCommand = new Command('agent')
     .description('Start interactive AI agent mode (default)')
     .option('--no-mcp', 'Disable local MCP server integration')
-    .option('--no-fullscreen', 'Disable fullscreen mode')
+    .option('--fullscreen', 'Enable fullscreen mode (default: scrolling mode)')
     .option('-d, --debug', 'Enable debug logging')
     .option('-m, --message <message>', 'Send a single message and exit')
     .action(async (options) => {
@@ -25,7 +25,7 @@ export const agentCommand = new Command('agent')
 
         await runAgentMode({
             mcp: options.mcp !== false,
-            fullscreen: options.fullscreen !== false,
+            fullscreen: options.fullscreen === true,  // Changed: fullscreen is opt-in
             debug: options.debug ?? false,
             message: options.message,
         });
@@ -131,7 +131,7 @@ export async function runAgentMode(options: {
         return;
     }
 
-    // Start interactive chat (fullscreen or normal)
+    // Start interactive chat (scrolling mode by default, fullscreen if requested)
     try {
         if (enableFullscreen) {
             await startFullscreenChat({
@@ -140,7 +140,8 @@ export async function runAgentMode(options: {
                 debug,
             });
         } else {
-            await startChat({
+            // New default: scrolling mode (Claude Code style)
+            await startScrollingChat({
                 mcpState,
                 onMcpToolCall,
                 debug,

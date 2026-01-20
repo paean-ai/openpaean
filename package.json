@@ -1,7 +1,7 @@
 {
     "name": "openpaean",
-    "version": "0.2.0",
-    "description": "Open source AI agent CLI with fullscreen TUI and local MCP integration",
+    "version": "0.3.0",
+    "description": "Open source AI agent CLI with scrolling TUI (Claude Code style) and local MCP integration",
     "author": "Paean AI <dev@paean.ai>",
     "license": "MIT",
     "type": "module",

@@ -86,6 +86,17 @@ export async function startFullscreenChat(options: ChatOptions = {}): Promise<vo
 }
 
 /**
+ * Start the chat in scrolling mode (new default - Claude Code style)
+ * Messages scroll naturally, input fixed at bottom, no alternate screen
+ */
+export async function startScrollingChat(options: ChatOptions = {}): Promise<void> {
+    const { TerminalApp } = await import('../ui/terminal/TerminalApp.js');
+
+    const app = new TerminalApp(options);
+    await app.start();
+}
+
+/**
  * Send a single message (non-interactive mode)
  * This is kept for programmatic usage
  */
