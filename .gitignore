@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Environment (NEVER commit these)
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Local config (contains authentication tokens)
+# Users should create their own config locally
+.openpaean/
+
+# Package manager locks (use bun.lock)
+yarn.lock
+pnpm-lock.yaml
+package-lock.json
