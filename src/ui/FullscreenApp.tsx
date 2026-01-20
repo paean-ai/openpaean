@@ -1,9 +1,10 @@
 /**
  * Fullscreen App Wrapper
  * Provides fullscreen terminal experience using alternate screen buffer
+ * With scroll position indicator and keyboard navigation hints
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Box, Text, useStdout } from 'ink';
 import { App, type AppProps } from './App.js';
 
@@ -12,16 +13,16 @@ interface FullscreenAppProps extends AppProps {
 }
 
 /**
- * Get terminal dimensions
+ * Hook to get terminal dimensions with resize handling
  */
 function useTerminalSize() {
     const { stdout } = useStdout();
-    const [size, setSize] = useState({
+    const [size, setSize] = React.useState({
         width: stdout?.columns || 80,
         height: stdout?.rows || 24,
     });
 
-    useEffect(() => {
+    React.useEffect(() => {
         if (!stdout) return;
 
         const handleResize = () => {
@@ -53,6 +54,11 @@ export const FullscreenApp: React.FC<FullscreenAppProps> = (props) => {
     const footerHeight = 1;
     const contentHeight = Math.max(height - headerHeight - footerHeight, 10);
 
+    // MCP tool count
+    const mcpToolCount = props.mcpState?.mcpServers?.reduce(
+        (sum, s) => sum + (s.tools?.length || 0), 0
+    ) || 0;
+
     return (
         <Box
             flexDirection="column"
@@ -70,11 +76,9 @@ export const FullscreenApp: React.FC<FullscreenAppProps> = (props) => {
             >
                 <Text bold color="magenta">{title}</Text>
                 <Box>
-                    {props.mcpState?.mcpServers && props.mcpState.mcpServers.length > 0 && (
+                    {mcpToolCount > 0 && (
                         <Text dimColor>
-                            🔗 MCP: {props.mcpState.mcpServers.reduce(
-                                (sum, s) => sum + (s.tools?.length || 0), 0
-                            )} tools
+                            🔗 MCP: {mcpToolCount} tools
                         </Text>
                     )}
                 </Box>
@@ -84,9 +88,11 @@ export const FullscreenApp: React.FC<FullscreenAppProps> = (props) => {
             <Box
                 flexDirection="column"
                 height={contentHeight}
-                overflow="hidden"
             >
-                <App {...props} fullscreen />
+                <App
+                    {...props}
+                    fullscreen
+                />
             </Box>
 
             {/* Fixed Footer / Status Bar */}
@@ -95,7 +101,13 @@ export const FullscreenApp: React.FC<FullscreenAppProps> = (props) => {
                 paddingX={1}
                 justifyContent="space-between"
             >
-                <Text dimColor>Ctrl+C: Exit</Text>
+                <Text dimColor>
+                    <Text color="gray">Ctrl+C</Text> Exit
+                    <Text color="gray"> │ </Text>
+                    <Text color="gray">↑↓</Text> Scroll
+                    <Text color="gray"> │ </Text>
+                    <Text color="gray">PgUp/Dn</Text> Page
+                </Text>
                 <Text dimColor>/help: Commands</Text>
             </Box>
         </Box>

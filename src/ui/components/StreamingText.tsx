@@ -1,10 +1,11 @@
 /**
  * StreamingText Component
- * Displays streaming text with optional markdown rendering
+ * Displays streaming text with markdown rendering
  */
 
 import React from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useStdout } from 'ink';
+import { MarkdownText, PlainText } from './MarkdownText.js';
 
 interface StreamingTextProps {
     text: string;
@@ -15,18 +16,24 @@ interface StreamingTextProps {
 export const StreamingText: React.FC<StreamingTextProps> = ({
     text,
     isComplete = false,
-    rawMode: _rawMode = false
+    rawMode = false
 }) => {
-    // For now, we render plain text
-    // TODO: Add ink-markdown integration for rich rendering
+    const { stdout } = useStdout();
+    const width = stdout?.columns || 80;
+
     return (
         <Box flexDirection="column">
             <Box>
-                <Text color="magenta" bold>Pæan: </Text>
+                <Text color="magenta" bold>OpenPaean: </Text>
             </Box>
-            <Box marginLeft={0}>
-                <Text wrap="wrap">{text}</Text>
-                {!isComplete && <Text dimColor>▌</Text>}
+            <Box marginLeft={0} flexDirection="column">
+                {rawMode ? (
+                    <PlainText streaming={!isComplete}>{text}</PlainText>
+                ) : (
+                    <MarkdownText streaming={!isComplete} width={width - 4}>
+                        {text}
+                    </MarkdownText>
+                )}
             </Box>
         </Box>
     );
