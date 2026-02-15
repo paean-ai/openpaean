@@ -15,7 +15,7 @@ export const validateCommand = new Command('validate')
   .option('--json', 'Output validation results as JSON')
   .action(async (options) => {
     if (!isAuthenticated()) {
-      output.error('Not authenticated. Please run "paean login" first.');
+      output.error('Not authenticated. Please run "openpaean login" first.');
       process.exit(1);
     }
 

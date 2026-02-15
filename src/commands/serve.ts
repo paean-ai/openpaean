@@ -14,7 +14,7 @@ export const serveCommand = new Command('serve')
   .action(async (options) => {
     if (!isAuthenticated()) {
       // Write to stderr so it doesn't interfere with MCP protocol
-      console.error('Error: Not authenticated. Please run "paean login" first.');
+      console.error('Error: Not authenticated. Please run "openpaean login" first.');
       process.exit(1);
     }
 

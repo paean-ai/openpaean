@@ -163,7 +163,7 @@ export async function browserLogin(): Promise<{ success: boolean; error?: string
   return new Promise((resolve) => {
     // Find an available port
     const port = 9876 + Math.floor(Math.random() * 100);
-    const callbackUrl = `http://localhost:${port}/callback`;
+    const callbackUrl = `http://127.0.0.1:${port}/callback`;
 
     let server: Server | null = null;
     let timeoutId: NodeJS.Timeout | null = null;
@@ -261,7 +261,7 @@ export async function browserLogin(): Promise<{ success: boolean; error?: string
       resolve({ success: false, error: `Server error: ${err.message}` });
     });
 
-    server.listen(port, async () => {
+    server.listen(port, '127.0.0.1', async () => {
       // Open browser to login page
       const webUrl = getWebUrl();
       const loginUrl = `${webUrl}/auth/cli?callback=${encodeURIComponent(callbackUrl)}`;

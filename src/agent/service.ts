@@ -40,7 +40,7 @@ export class AgentService {
 
         const token = getToken();
         if (!token) {
-            callbacks.onError?.('Authentication required. Run `paean login` first.');
+            callbacks.onError?.('Authentication required. Run `openpaean login` first.');
             return { abort: () => this.abortController?.abort() };
         }
 

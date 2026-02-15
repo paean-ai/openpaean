@@ -4,9 +4,9 @@
  * Spawns and manages MCP servers using stdio transport
  * 
  * Supports loading MCP server configs from multiple sources:
- * 1. Global config: ~/.paean/mcp_config.json
- * 2. Project config: .paean/mcp.json (in current project root)
- * 3. Custom JSON tool definitions: .paean/mcp_tools.json
+ * 1. Global config: ~/.openpaean/mcp_config.json (legacy: ~/.paean/mcp_config.json)
+ * 2. Project config: .openpaean/mcp.json (legacy: .paean/mcp.json)
+ * 3. Custom JSON tool definitions: .openpaean/mcp_tools.json (legacy: .paean/mcp_tools.json)
  * 
  * This enables open-source users to define custom MCP integrations
  * via simple JSON configuration files without writing code.
@@ -32,7 +32,7 @@ export interface McpServerConfig {
 /**
  * MCP configuration file format
  * 
- * Example ~/.paean/mcp_config.json:
+ * Example ~/.openpaean/mcp_config.json:
  * ```json
  * {
  *   "mcpServers": {
@@ -97,11 +97,13 @@ interface McpServerInstance {
 export class McpClient {
     private servers: Map<string, McpServerInstance> = new Map();
     private configPath: string;
+    private legacyConfigPath: string;
     private debug: boolean;
 
     constructor(options?: { debug?: boolean }) {
         this.debug = options?.debug ?? false;
-        this.configPath = join(homedir(), '.paean', 'mcp_config.json');
+        this.configPath = join(homedir(), '.openpaean', 'mcp_config.json');
+        this.legacyConfigPath = join(homedir(), '.paean', 'mcp_config.json');
     }
 
     /**
@@ -170,8 +172,8 @@ export class McpClient {
      * Load MCP configuration from all sources (global + project-local)
      * 
      * Merges configs from:
-     * 1. Global: ~/.paean/mcp_config.json
-     * 2. Project: .paean/mcp.json (relative to cwd)
+     * 1. Global: ~/.openpaean/mcp_config.json (legacy: ~/.paean/mcp_config.json)
+     * 2. Project: .openpaean/mcp.json (legacy: .paean/mcp.json)
      * 
      * Project-level configs take precedence over global configs
      * for servers with the same name.
@@ -180,7 +182,22 @@ export class McpClient {
         const merged: McpConfig = { mcpServers: {} };
         let found = false;
 
-        // 1. Load global config
+        // 1. Load global config (legacy first, then current)
+        if (existsSync(this.legacyConfigPath)) {
+            try {
+                const content = readFileSync(this.legacyConfigPath, 'utf-8');
+                const global = JSON.parse(content) as McpConfig;
+                if (global.mcpServers) {
+                    Object.assign(merged.mcpServers, global.mcpServers);
+                    found = true;
+                    this.log('Loaded legacy global MCP config from:', this.legacyConfigPath);
+                }
+            } catch (error) {
+                this.log('Failed to load legacy global config:', error);
+            }
+        }
+
+        // Current global config (overrides legacy)
         if (existsSync(this.configPath)) {
             try {
                 const content = readFileSync(this.configPath, 'utf-8');
@@ -188,14 +205,31 @@ export class McpClient {
                 if (global.mcpServers) {
                     Object.assign(merged.mcpServers, global.mcpServers);
                     found = true;
+                    this.log('Loaded global MCP config from:', this.configPath);
                 }
             } catch (error) {
                 this.log('Failed to load global config:', error);
             }
         }
 
-        // 2. Load project-level config (.paean/mcp.json)
-        const projectConfigPath = join(process.cwd(), '.paean', 'mcp.json');
+        // 2. Load project-level config (legacy first, then current)
+        const legacyProjectConfigPath = join(process.cwd(), '.paean', 'mcp.json');
+        if (existsSync(legacyProjectConfigPath)) {
+            try {
+                const content = readFileSync(legacyProjectConfigPath, 'utf-8');
+                const project = JSON.parse(content) as McpConfig;
+                if (project.mcpServers) {
+                    // Project config overrides global for same-name servers
+                    Object.assign(merged.mcpServers, project.mcpServers);
+                    found = true;
+                    this.log('Loaded legacy project MCP config from:', legacyProjectConfigPath);
+                }
+            } catch (error) {
+                this.log('Failed to load legacy project config:', error);
+            }
+        }
+
+        const projectConfigPath = join(process.cwd(), '.openpaean', 'mcp.json');
         if (existsSync(projectConfigPath)) {
             try {
                 const content = readFileSync(projectConfigPath, 'utf-8');
@@ -221,10 +255,10 @@ export class McpClient {
 
     /**
      * Get the path to the project-level MCP tools JSON file
-     * (.paean/mcp_tools.json in current project)
+     * (.openpaean/mcp_tools.json in current project)
      */
     getProjectToolsPath(): string {
-        return join(process.cwd(), '.paean', 'mcp_tools.json');
+        return join(process.cwd(), '.openpaean', 'mcp_tools.json');
     }
 
     /**

@@ -255,7 +255,7 @@ tasksCommand
       }
 
       output.newline();
-      output.dim('Use "paean tasks accept <id>" or "paean tasks reject <id>" to process.');
+      output.dim('Use "openpaean tasks accept <id>" or "openpaean tasks reject <id>" to process.');
     } catch (error) {
       spin.stop();
       handleError(error);
@@ -304,7 +304,7 @@ tasksCommand
 // Helper functions
 function requireAuth(): void {
   if (!isAuthenticated()) {
-    output.error('Not authenticated. Please run "paean login" first.');
+    output.error('Not authenticated. Please run "openpaean login" first.');
     process.exit(1);
   }
 }

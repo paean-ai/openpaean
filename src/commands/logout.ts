@@ -9,7 +9,7 @@ import { isAuthenticated, getConfigValue } from '../utils/config.js';
 import * as output from '../utils/output.js';
 
 export const logoutCommand = new Command('logout')
-  .description('Sign out of Paean AI')
+  .description('Sign out of OpenPaean')
   .option('--force', 'Force logout without confirmation')
   .action(async (options) => {
     if (!isAuthenticated()) {
@@ -27,5 +27,5 @@ export const logoutCommand = new Command('logout')
 
     logout();
     output.success('Successfully logged out.');
-    output.dim('Use "paean login" to sign in again.');
+    output.dim('Use "openpaean login" to sign in again.');
   });

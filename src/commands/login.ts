@@ -9,7 +9,7 @@ import { isAuthenticated, getConfigValue } from '../utils/config.js';
 import * as output from '../utils/output.js';
 
 export const loginCommand = new Command('login')
-  .description('Authenticate with Paean AI')
+  .description('Authenticate with OpenPaean')
   .option('--qr', 'Use QR code login (scan with mobile app)')
   .option('--browser', 'Use browser-based login')
   .option('--check', 'Check current authentication status')
@@ -24,7 +24,7 @@ export const loginCommand = new Command('login')
     if (isAuthenticated()) {
       const email = getConfigValue('email');
       output.success(`Already logged in${email ? ` as ${email}` : ''}`);
-      output.dim('Use "paean logout" to sign out, or "paean login --check" to verify.');
+      output.dim('Use "openpaean logout" to sign out, or "openpaean login --check" to verify.');
       return;
     }
 
@@ -35,7 +35,7 @@ export const loginCommand = new Command('login')
     // Default to browser if neither specified
     const method = useQr ? 'qr' : useBrowser ? 'browser' : 'browser';
 
-    output.header('Paean AI Login');
+    output.header('OpenPaean Login');
 
     const spin = output.spinner(
       method === 'qr' ? 'Creating QR session...' : 'Preparing login...'
@@ -70,7 +70,7 @@ export const loginCommand = new Command('login')
         }
 
         output.newline();
-        output.dim('You can now use "paean tasks" to view your tasks.');
+        output.dim('You can now use "openpaean tasks" to view your tasks.');
         process.exit(0);
       } else {
         output.newline();
@@ -90,7 +90,7 @@ async function checkAuthStatus(): Promise<void> {
 
   if (!isAuthenticated()) {
     output.warning('Not logged in');
-    output.dim('Use "paean login" to authenticate.');
+    output.dim('Use "openpaean login" to authenticate.');
     return;
   }
 
@@ -113,11 +113,11 @@ async function checkAuthStatus(): Promise<void> {
       }
     } else {
       output.warning('Token expired or invalid');
-      output.dim('Use "paean login" to re-authenticate.');
+      output.dim('Use "openpaean login" to re-authenticate.');
     }
   } catch (error) {
     spin.stop();
     output.warning('Could not validate token');
-    output.dim('Use "paean login" to re-authenticate.');
+    output.dim('Use "openpaean login" to re-authenticate.');
   }
 }

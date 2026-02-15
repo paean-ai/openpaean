@@ -13,12 +13,13 @@ import * as output from '../utils/output.js';
 
 export const contextCommand = new Command('context')
   .description('Generate context file for AI agents')
-  .option('-o, --output <path>', 'Output file path', '.paean/context.md')
+  .option('-o, --output <path>', 'Output file path', '.openpaean/context.md')
+  .option('--include-user', 'Include user identity fields in output')
   .option('--json', 'Output JSON instead of Markdown')
   .option('--stdout', 'Print to stdout instead of file')
   .action(async (options) => {
     if (!isAuthenticated()) {
-      output.error('Not authenticated. Please run "paean login" first.');
+      output.error('Not authenticated. Please run "openpaean login" first.');
       process.exit(1);
     }
 
@@ -40,6 +41,7 @@ export const contextCommand = new Command('context')
         .filter((t) => t.status === 'completed')
         .slice(0, 5);
 
+      const includeUser = options.includeUser === true;
       const contextData = {
         project: {
           name: project.name,
@@ -48,7 +50,7 @@ export const contextCommand = new Command('context')
           id: projectId,
         },
         user: {
-          email: getConfigValue('email'),
+          email: includeUser ? getConfigValue('email') : undefined,
         },
         tasks: {
           pending: pendingTasks,
@@ -121,7 +123,7 @@ function generateMarkdown(
 ): string {
   const lines: string[] = [];
 
-  lines.push('# Paean AI Context');
+  lines.push('# OpenPaean Context');
   lines.push('');
   lines.push(`> Generated: ${new Date().toLocaleString()}`);
   lines.push(`> Project: ${data.project.name}`);
@@ -174,7 +176,7 @@ function generateMarkdown(
   lines.push('1. All code changes pass linting (`npm run lint` or equivalent)');
   lines.push('2. All tests pass (`npm test` or equivalent)');
   lines.push('3. Changes are documented if necessary');
-  lines.push('4. Mark task as complete using `paean tasks complete <task_id>`');
+  lines.push('4. Mark task as complete using `openpaean tasks complete <task_id>`');
   lines.push('');
 
   // Recently Completed Section
@@ -197,9 +199,9 @@ function generateMarkdown(
   lines.push('When working on these tasks:');
   lines.push('');
   lines.push('1. Focus on one task at a time, starting with the highest priority');
-  lines.push('2. After completing a task, run: `paean tasks complete <task_id> --summary "Brief description"`');
-  lines.push('3. If a task cannot be completed, update its status: `paean tasks update <task_id> --status in_progress`');
-  lines.push('4. Create new tasks if you discover additional work: `paean tasks add "Task description"`');
+  lines.push('2. After completing a task, run: `openpaean tasks complete <task_id> --summary "Brief description"`');
+  lines.push('3. If a task cannot be completed, update its status: `openpaean tasks update <task_id> --status in_progress`');
+  lines.push('4. Create new tasks if you discover additional work: `openpaean tasks add "Task description"`');
   lines.push('');
 
   return lines.join('\n');

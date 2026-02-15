@@ -97,24 +97,37 @@ export async function runAgentMode(options: {
     }
 
     // Load custom MCP tools from JSON definition files
-    // Supports: .paean/mcp_tools.json (project-level)
-    // and ~/.paean/mcp_tools.json (global-level)
+    // Supports: .openpaean/mcp_tools.json (project-level)
+    // and ~/.openpaean/mcp_tools.json (global-level)
+    // Legacy paths (.paean/...) are also supported for backward compatibility.
     try {
         const { join } = await import('path');
         const { homedir } = await import('os');
 
-        // Load project-level custom tools
-        const projectToolsPath = join(process.cwd(), '.paean', 'mcp_tools.json');
-        const projectCount = await loadCustomToolsFromJson(projectToolsPath);
-        if (projectCount > 0 && debug) {
-            console.log(chalk.dim(`[MCP] Loaded ${projectCount} custom tool(s) from project config`));
+        const projectToolsPaths = [
+            join(process.cwd(), '.paean', 'mcp_tools.json'),
+            join(process.cwd(), '.openpaean', 'mcp_tools.json'),
+        ];
+
+        const globalToolsPaths = [
+            join(homedir(), '.paean', 'mcp_tools.json'),
+            join(homedir(), '.openpaean', 'mcp_tools.json'),
+        ];
+
+        // Load project-level custom tools (legacy first, then current)
+        for (const projectToolsPath of projectToolsPaths) {
+            const projectCount = await loadCustomToolsFromJson(projectToolsPath);
+            if (projectCount > 0 && debug) {
+                console.log(chalk.dim(`[MCP] Loaded ${projectCount} custom tool(s) from ${projectToolsPath}`));
+            }
         }
 
-        // Load global custom tools
-        const globalToolsPath = join(homedir(), '.paean', 'mcp_tools.json');
-        const globalCount = await loadCustomToolsFromJson(globalToolsPath);
-        if (globalCount > 0 && debug) {
-            console.log(chalk.dim(`[MCP] Loaded ${globalCount} custom tool(s) from global config`));
+        // Load global custom tools (legacy first, then current)
+        for (const globalToolsPath of globalToolsPaths) {
+            const globalCount = await loadCustomToolsFromJson(globalToolsPath);
+            if (globalCount > 0 && debug) {
+                console.log(chalk.dim(`[MCP] Loaded ${globalCount} custom tool(s) from ${globalToolsPath}`));
+            }
         }
     } catch (error) {
         if (debug) {

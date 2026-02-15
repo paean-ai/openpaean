@@ -29,7 +29,7 @@ export function createApiClient(): AxiosInstance {
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'User-Agent': 'Paean-CLI/0.1.0',
+      'User-Agent': 'OpenPaean-CLI/0.1.0',
     },
   });
 
@@ -83,7 +83,7 @@ export function createPublicApiClient(): AxiosInstance {
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'User-Agent': 'Paean-CLI/0.1.0',
+      'User-Agent': 'OpenPaean-CLI/0.1.0',
     },
   });
 
