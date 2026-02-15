@@ -65,7 +65,23 @@ export {
 // MCP Server
 export { startMcpServer, type McpServerOptions } from './mcp/server.js';
 export { getMcpResources, readMcpResource } from './mcp/resources.js';
-export { getMcpTools, executeMcpTool } from './mcp/tools.js';
+export {
+  getMcpTools,
+  executeMcpTool,
+  registerCustomTools,
+  unregisterCustomTool,
+  loadCustomToolsFromJson,
+  type CustomToolHandler,
+} from './mcp/tools.js';
+
+// System Tools (shell, filesystem, process)
+export {
+  getSystemTools,
+  executeSystemTool,
+  isCommandWhitelisted,
+  isDangerousCommand,
+  getCommandWhitelist,
+} from './mcp/system.js';
 
 // MCP Client (for local MCP server integration)
 export { McpClient } from './mcp/client.js';

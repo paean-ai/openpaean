@@ -8,6 +8,7 @@ import chalk from 'chalk';
 import { isAuthenticated } from '../utils/config.js';
 import { startScrollingChat, startFullscreenChat } from '../agent/chat.ink.js';
 import { McpClient } from '../mcp/client.js';
+import { loadCustomToolsFromJson } from '../mcp/tools.js';
 import type { McpState, McpToolResult } from '../agent/types.js';
 
 export const agentCommand = new Command('agent')
@@ -92,6 +93,32 @@ export async function runAgentMode(options: {
                     })),
                 };
             }
+        }
+    }
+
+    // Load custom MCP tools from JSON definition files
+    // Supports: .paean/mcp_tools.json (project-level)
+    // and ~/.paean/mcp_tools.json (global-level)
+    try {
+        const { join } = await import('path');
+        const { homedir } = await import('os');
+
+        // Load project-level custom tools
+        const projectToolsPath = join(process.cwd(), '.paean', 'mcp_tools.json');
+        const projectCount = await loadCustomToolsFromJson(projectToolsPath);
+        if (projectCount > 0 && debug) {
+            console.log(chalk.dim(`[MCP] Loaded ${projectCount} custom tool(s) from project config`));
+        }
+
+        // Load global custom tools
+        const globalToolsPath = join(homedir(), '.paean', 'mcp_tools.json');
+        const globalCount = await loadCustomToolsFromJson(globalToolsPath);
+        if (globalCount > 0 && debug) {
+            console.log(chalk.dim(`[MCP] Loaded ${globalCount} custom tool(s) from global config`));
+        }
+    } catch (error) {
+        if (debug) {
+            console.log(chalk.dim(`[MCP] Custom tools loading skipped: ${(error as Error).message}`));
         }
     }
 

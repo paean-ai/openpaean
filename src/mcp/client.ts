@@ -2,6 +2,14 @@
  * MCP Client
  * Local MCP server management for CLI
  * Spawns and manages MCP servers using stdio transport
+ * 
+ * Supports loading MCP server configs from multiple sources:
+ * 1. Global config: ~/.paean/mcp_config.json
+ * 2. Project config: .paean/mcp.json (in current project root)
+ * 3. Custom JSON tool definitions: .paean/mcp_tools.json
+ * 
+ * This enables open-source users to define custom MCP integrations
+ * via simple JSON configuration files without writing code.
  */
 
 import { spawn, type ChildProcess } from 'child_process';
@@ -23,6 +31,19 @@ export interface McpServerConfig {
 
 /**
  * MCP configuration file format
+ * 
+ * Example ~/.paean/mcp_config.json:
+ * ```json
+ * {
+ *   "mcpServers": {
+ *     "my-server": {
+ *       "command": "npx",
+ *       "args": ["-y", "@my-org/mcp-server"],
+ *       "env": { "API_KEY": "..." }
+ *     }
+ *   }
+ * }
+ * ```
  */
 export interface McpConfig {
     mcpServers: Record<string, McpServerConfig>;
@@ -146,21 +167,64 @@ export class McpClient {
     }
 
     /**
-     * Load MCP configuration
+     * Load MCP configuration from all sources (global + project-local)
+     * 
+     * Merges configs from:
+     * 1. Global: ~/.paean/mcp_config.json
+     * 2. Project: .paean/mcp.json (relative to cwd)
+     * 
+     * Project-level configs take precedence over global configs
+     * for servers with the same name.
      */
     loadConfig(): McpConfig | null {
-        if (!existsSync(this.configPath)) {
-            this.log('Config file not found:', this.configPath);
+        const merged: McpConfig = { mcpServers: {} };
+        let found = false;
+
+        // 1. Load global config
+        if (existsSync(this.configPath)) {
+            try {
+                const content = readFileSync(this.configPath, 'utf-8');
+                const global = JSON.parse(content) as McpConfig;
+                if (global.mcpServers) {
+                    Object.assign(merged.mcpServers, global.mcpServers);
+                    found = true;
+                }
+            } catch (error) {
+                this.log('Failed to load global config:', error);
+            }
+        }
+
+        // 2. Load project-level config (.paean/mcp.json)
+        const projectConfigPath = join(process.cwd(), '.paean', 'mcp.json');
+        if (existsSync(projectConfigPath)) {
+            try {
+                const content = readFileSync(projectConfigPath, 'utf-8');
+                const project = JSON.parse(content) as McpConfig;
+                if (project.mcpServers) {
+                    // Project config overrides global for same-name servers
+                    Object.assign(merged.mcpServers, project.mcpServers);
+                    found = true;
+                    this.log('Loaded project MCP config from:', projectConfigPath);
+                }
+            } catch (error) {
+                this.log('Failed to load project config:', error);
+            }
+        }
+
+        if (!found) {
+            this.log('No MCP config files found');
             return null;
         }
 
-        try {
-            const content = readFileSync(this.configPath, 'utf-8');
-            return JSON.parse(content) as McpConfig;
-        } catch (error) {
-            this.log('Failed to load config:', error);
-            return null;
-        }
+        return merged;
+    }
+
+    /**
+     * Get the path to the project-level MCP tools JSON file
+     * (.paean/mcp_tools.json in current project)
+     */
+    getProjectToolsPath(): string {
+        return join(process.cwd(), '.paean', 'mcp_tools.json');
     }
 
     /**
@@ -398,8 +462,8 @@ export class McpClient {
             protocolVersion: '2024-11-05',
             capabilities: {},
             clientInfo: {
-                name: 'paean-cli',
-                version: '0.2.1',
+                name: 'openpaean-cli',
+                version: '0.4.0',
             },
         }, timeoutMs);
 

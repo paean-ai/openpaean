@@ -1,6 +1,16 @@
 /**
  * MCP Tools
  * Define tools that AI agents can execute
+ * 
+ * This module combines:
+ * - System tools (shell, filesystem, process management)
+ * - Task management tools (CRUD for tasks and subtasks)
+ * - Custom MCP tools (registered via registerCustomTools for extensibility)
+ * 
+ * Open Source MCP Extensibility:
+ * Developers can register custom tools using registerCustomTools() to extend
+ * the MCP server with project-specific or domain-specific capabilities.
+ * See also: loadCustomToolsFromJson() for JSON-defined local MCP tools.
  */
 
 import { type Tool } from '@modelcontextprotocol/sdk/types.js';
@@ -18,12 +28,198 @@ import {
   getSubtaskProgress,
 } from '../api/todo.js';
 import { detectProject, getProjectId } from '../utils/project.js';
+import { getSystemTools, executeSystemTool } from './system.js';
+
+/** System tool names that must be routed to executeSystemTool */
+const SYSTEM_TOOL_NAMES = new Set([
+  'paean_execute_shell',
+  'paean_check_process',
+  'paean_kill_process',
+  'paean_download_file',
+  'paean_write_file',
+  'paean_read_file',
+  'paean_list_directory',
+]);
+
+// ============================================
+// Custom MCP Tool Registry (Open Source Extensibility)
+// ============================================
 
 /**
- * Get available MCP tools
+ * Custom tool handler type
+ * Implement this to create your own MCP tools
+ */
+export type CustomToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
+
+/** Registry for custom MCP tools */
+const customToolRegistry = new Map<string, { tool: Tool; handler: CustomToolHandler }>();
+
+/**
+ * Register custom MCP tools programmatically.
+ * 
+ * This is the primary extensibility point for open-source MCP customization.
+ * Registered tools will appear alongside built-in tools when listing MCP tools.
+ * 
+ * @example
+ * ```typescript
+ * import { registerCustomTools } from 'openpaean';
+ * 
+ * registerCustomTools([{
+ *   tool: {
+ *     name: 'my_custom_tool',
+ *     description: 'Does something cool',
+ *     inputSchema: {
+ *       type: 'object',
+ *       properties: {
+ *         input: { type: 'string', description: 'The input value' }
+ *       },
+ *       required: ['input']
+ *     }
+ *   },
+ *   handler: async (args) => {
+ *     return { success: true, result: `Processed: ${args.input}` };
+ *   }
+ * }]);
+ * ```
+ */
+export function registerCustomTools(
+  tools: Array<{ tool: Tool; handler: CustomToolHandler }>
+): void {
+  for (const { tool, handler } of tools) {
+    customToolRegistry.set(tool.name, { tool, handler });
+  }
+}
+
+/**
+ * Unregister a custom MCP tool by name
+ */
+export function unregisterCustomTool(toolName: string): boolean {
+  return customToolRegistry.delete(toolName);
+}
+
+/**
+ * Load custom MCP tools from a JSON definition file.
+ * 
+ * JSON format for defining local MCP tools:
+ * ```json
+ * {
+ *   "tools": [
+ *     {
+ *       "name": "my_tool",
+ *       "description": "Description of my tool",
+ *       "inputSchema": { ... },
+ *       "command": "node ./scripts/my-tool.js"
+ *     }
+ *   ]
+ * }
+ * ```
+ * 
+ * Each tool defined in JSON will be executed as a shell command,
+ * with the tool arguments passed as JSON via stdin.
+ */
+export async function loadCustomToolsFromJson(jsonPath: string): Promise<number> {
+  const { readFile } = await import('fs/promises');
+  const { resolve } = await import('path');
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
+
+  const resolvedPath = resolve(jsonPath);
+
+  try {
+    const content = await readFile(resolvedPath, 'utf-8');
+    const config = JSON.parse(content) as {
+      tools?: Array<{
+        name: string;
+        description?: string;
+        inputSchema?: Record<string, unknown>;
+        command: string;
+        cwd?: string;
+        timeout?: number;
+      }>;
+    };
+
+    if (!config.tools || !Array.isArray(config.tools)) {
+      return 0;
+    }
+
+    const toolEntries: Array<{ tool: Tool; handler: CustomToolHandler }> = [];
+
+    for (const def of config.tools) {
+      if (!def.name || !def.command) continue;
+
+      const tool: Tool = {
+        name: def.name,
+        description: def.description || `Custom tool: ${def.name}`,
+        inputSchema: {
+          type: 'object',
+          properties: (def.inputSchema?.properties || {}) as Record<string, object>,
+          ...(def.inputSchema?.required ? { required: def.inputSchema.required as string[] } : {}),
+        },
+      };
+
+      const command = def.command;
+      const cwd = def.cwd;
+      const timeout = def.timeout || 60000;
+
+      const handler: CustomToolHandler = async (args) => {
+        try {
+          const input = JSON.stringify(args);
+          const { stdout, stderr } = await execAsync(command, {
+            cwd: cwd || process.cwd(),
+            timeout,
+            maxBuffer: 5 * 1024 * 1024,
+            env: {
+              ...process.env,
+              MCP_TOOL_INPUT: input,
+              MCP_TOOL_NAME: def.name,
+            },
+          });
+
+          // Try to parse stdout as JSON
+          try {
+            return JSON.parse(stdout.trim());
+          } catch {
+            return {
+              success: true,
+              output: stdout.trim(),
+              stderr: stderr.trim() || undefined,
+            };
+          }
+        } catch (error) {
+          const err = error as { message?: string; stdout?: string; stderr?: string };
+          return {
+            success: false,
+            error: err.message || 'Custom tool execution failed',
+            stdout: err.stdout?.trim(),
+            stderr: err.stderr?.trim(),
+          };
+        }
+      };
+
+      toolEntries.push({ tool, handler });
+    }
+
+    registerCustomTools(toolEntries);
+    return toolEntries.length;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return 0; // File not found is not an error, just no custom tools
+    }
+    throw error;
+  }
+}
+
+/**
+ * Get available MCP tools (including system tools and custom tools)
  */
 export function getMcpTools(): Tool[] {
   return [
+    // System/Shell tools (open source)
+    ...getSystemTools(),
+    // Custom registered tools
+    ...Array.from(customToolRegistry.values()).map(({ tool }) => tool),
+    // Task management tools
     {
       name: 'paean_complete_task',
       description:
@@ -616,10 +812,20 @@ export async function executeMcpTool(
       }
     }
 
-    default:
+    default: {
+      // Check if it's a system tool (shell, filesystem, process)
+      if (SYSTEM_TOOL_NAMES.has(toolName)) {
+        return executeSystemTool(toolName, args);
+      }
+      // Check if it's a custom registered tool
+      const customEntry = customToolRegistry.get(toolName);
+      if (customEntry) {
+        return customEntry.handler(args);
+      }
       return {
         success: false,
         error: `Unknown tool: ${toolName}`,
       };
+    }
   }
 }
