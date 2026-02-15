@@ -5,6 +5,10 @@
 > **[Project Overview & Vision](docs/OVERVIEW.md)** — Architecture, roadmap, and the full story behind Open Paean.
 
 <p align="center">
+  <a href="https://www.producthunt.com/products/paean?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-paean" target="_blank" rel="noopener noreferrer"><img alt="Paean - Stop prompting. Hire your 24/7 proactive AI agent. | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1079645&theme=light&t=1771141715852" /></a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/npm/v/openpaean?style=flat-square" alt="npm version" />
   <img src="https://img.shields.io/npm/l/openpaean?style=flat-square" alt="license" />
   <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen?style=flat-square" alt="node version" />
