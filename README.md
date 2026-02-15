@@ -1,6 +1,8 @@
 # OpenPaean
 
 > Open source AI agent CLI with fullscreen TUI and local MCP integration
+>
+> **[Project Overview & Vision](docs/OVERVIEW.md)** — Architecture, roadmap, and the full story behind Open Paean.
 
 <p align="center">
   <img src="https://img.shields.io/npm/v/openpaean?style=flat-square" alt="npm version" />
@@ -114,6 +116,12 @@ OPENPAEAN_WEB_URL=https://your-web.com
 - **MCP server trust**: Only configure MCP servers from trusted sources
 
 See [SECURITY.md](SECURITY.md) for vulnerability reporting.
+
+## Documentation
+
+- **[Project Overview & Vision](docs/OVERVIEW.md)** — Architecture deep-dive, design philosophy, and roadmap.
+- **[Contributing Guide](CONTRIBUTING.md)** — Development setup and guidelines.
+- **[Security Policy](SECURITY.md)** — Vulnerability reporting.
 
 ## Contributing
 
