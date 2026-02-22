@@ -83,6 +83,13 @@ export {
   getCommandWhitelist,
 } from './mcp/system.js';
 
+// CLI Agent Tools (invoke external coding CLIs)
+export {
+  getCliAgentTools,
+  executeCliAgentTool,
+  type CliAgentType,
+} from './mcp/cli-agents.js';
+
 // MCP Client (for local MCP server integration)
 export { McpClient } from './mcp/client.js';
 

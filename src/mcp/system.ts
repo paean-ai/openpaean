@@ -41,6 +41,8 @@ const COMMAND_WHITELIST = new Set([
     'tsc', 'esbuild', 'vite', 'webpack',
     // Testing
     'vitest', 'jest', 'mocha',
+    // AI coding agents
+    'a8e', 'claude', 'codex', 'gemini', 'opencode',
     // Basic utilities (read-only)
     'echo', 'cat', 'ls', 'pwd', 'which', 'head', 'tail', 'grep', 'find', 'wc',
     // Process inspection

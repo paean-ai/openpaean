@@ -29,6 +29,7 @@ import {
 } from '../api/todo.js';
 import { detectProject, getProjectId } from '../utils/project.js';
 import { getSystemTools, executeSystemTool } from './system.js';
+import { getCliAgentTools, executeCliAgentTool, CLI_AGENT_TOOL_NAMES } from './cli-agents.js';
 
 /** System tool names that must be routed to executeSystemTool */
 const SYSTEM_TOOL_NAMES = new Set([
@@ -217,6 +218,8 @@ export function getMcpTools(): Tool[] {
   return [
     // System/Shell tools (open source)
     ...getSystemTools(),
+    // CLI agent tools (invoke external coding CLIs)
+    ...getCliAgentTools(),
     // Custom registered tools
     ...Array.from(customToolRegistry.values()).map(({ tool }) => tool),
     // Task management tools
@@ -816,6 +819,10 @@ export async function executeMcpTool(
       // Check if it's a system tool (shell, filesystem, process)
       if (SYSTEM_TOOL_NAMES.has(toolName)) {
         return executeSystemTool(toolName, args);
+      }
+      // Check if it's a CLI agent tool
+      if (CLI_AGENT_TOOL_NAMES.has(toolName)) {
+        return executeCliAgentTool(toolName, args);
       }
       // Check if it's a custom registered tool
       const customEntry = customToolRegistry.get(toolName);
