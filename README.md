@@ -24,7 +24,14 @@
 ## Installation
 
 ```bash
-# Install globally with bun (recommended)
+# Quick install (recommended)
+curl -fsSL https://paean.ai/openpaean/install.sh | bash
+```
+
+Or install manually with a package manager:
+
+```bash
+# Install globally with bun
 bun add -g openpaean
 
 # Or use npm
@@ -32,6 +39,12 @@ npm install -g openpaean
 
 # Or use directly with npx
 npx openpaean
+```
+
+### Update
+
+```bash
+openpaean update
 ```
 
 ## Quick Start
@@ -78,6 +91,8 @@ openpaean --no-fullscreen   # Disable fullscreen mode
 openpaean --no-mcp          # Disable local MCP integration
 openpaean -d, --debug       # Enable debug logging
 openpaean -m "message"      # Send a single message
+openpaean update             # Update to the latest version
+openpaean update --check     # Check for updates without installing
 ```
 
 ## Configuration

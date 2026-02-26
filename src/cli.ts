@@ -15,6 +15,7 @@ import { contextCommand } from './commands/context.js';
 import { serveCommand } from './commands/serve.js';
 import { validateCommand } from './commands/validate.js';
 import { agentCommand, runAgentMode } from './commands/agent.js';
+import { updateCommand } from './commands/update.js';
 import { getConfigPath } from './utils/config.js';
 
 // Read version from package.json
@@ -56,6 +57,7 @@ program.addCommand(tasksCommand);
 program.addCommand(contextCommand);
 program.addCommand(serveCommand);
 program.addCommand(validateCommand);
+program.addCommand(updateCommand);
 
 // Parse arguments
 program.parse();
