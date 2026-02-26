@@ -16,6 +16,8 @@ import { serveCommand } from './commands/serve.js';
 import { validateCommand } from './commands/validate.js';
 import { agentCommand, runAgentMode } from './commands/agent.js';
 import { updateCommand } from './commands/update.js';
+import { workerCommand } from './commands/worker.js';
+import { gatewayCommand } from './commands/gateway.js';
 import { getConfigPath } from './utils/config.js';
 
 // Read version from package.json
@@ -27,25 +29,32 @@ const program = new Command();
 
 program
   .name('openpaean')
-  .description('OpenPaean - Open source AI agent with scrolling TUI (Claude Code style) and MCP integration')
+  .description('OpenPaean - Open source AI agent with scrolling TUI, MCP integration, gateway and worker modes')
   .version(packageJson.version)
   .option('--config', 'Show config file path')
   .option('--no-mcp', 'Disable local MCP server integration')
   .option('--fullscreen', 'Enable fullscreen mode (default: scrolling mode)')
   .option('-d, --debug', 'Enable debug logging')
   .option('-m, --message <message>', 'Send a single message to agent')
+  .option('--gateway', 'Enable gateway relay for remote clients')
+  .option('--worker', 'Enable background worker for task processing')
+  .option('--gateway-interval <ms>', 'Gateway poll interval in milliseconds', '3000')
+  .option('--worker-interval <ms>', 'Worker poll interval in milliseconds', '30000')
   .action(async (options) => {
     if (options.config) {
       console.log(getConfigPath());
       return;
     }
 
-    // Default action: start agent mode
     await runAgentMode({
       mcp: options.mcp !== false,
       fullscreen: options.fullscreen === true,
       debug: options.debug,
       message: options.message,
+      gatewayEnabled: options.gateway ?? false,
+      gatewayPollInterval: parseInt(options.gatewayInterval, 10) || 3000,
+      workerEnabled: options.worker ?? false,
+      workerPollInterval: parseInt(options.workerInterval, 10) || 30000,
     });
   });
 
@@ -57,6 +66,8 @@ program.addCommand(tasksCommand);
 program.addCommand(contextCommand);
 program.addCommand(serveCommand);
 program.addCommand(validateCommand);
+program.addCommand(workerCommand);
+program.addCommand(gatewayCommand);
 program.addCommand(updateCommand);
 
 // Parse arguments

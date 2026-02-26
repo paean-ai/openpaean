@@ -19,6 +19,9 @@ export interface OpenPaeanConfig {
   apiUrl?: string;
   webUrl?: string;
 
+  // Device / Session
+  deviceSessionId?: string;
+
   // User Preferences
   defaultPriority?: "high" | "medium" | "low";
   outputFormat?: "table" | "json" | "minimal";
@@ -45,6 +48,7 @@ const config = new Conf<OpenPaeanConfig>({
     expiresAt: { type: "string" },
     apiUrl: { type: "string" },
     webUrl: { type: "string" },
+    deviceSessionId: { type: "string" },
     defaultPriority: { type: "string", enum: ["high", "medium", "low"] },
     outputFormat: { type: "string", enum: ["table", "json", "minimal"] },
   },
@@ -163,6 +167,31 @@ export function clearAuth(): void {
  */
 export function getConfigPath(): string {
   return config.path;
+}
+
+/**
+ * Get the config directory path
+ */
+export function getConfigDir(): string {
+  return join(homedir(), ".openpaean");
+}
+
+/**
+ * Get the refresh token
+ */
+export function getRefreshToken(): string | undefined {
+  return config.get("refreshToken");
+}
+
+/**
+ * Check if the token is near expiry (within 5 minutes)
+ */
+export function isTokenNearExpiry(): boolean {
+  const expiresAt = config.get("expiresAt");
+  if (!expiresAt) return false;
+  const expiry = new Date(expiresAt).getTime();
+  const buffer = 5 * 60 * 1000;
+  return expiry - buffer < Date.now();
 }
 
 /**

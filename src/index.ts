@@ -1,10 +1,10 @@
 /**
- * Paean CLI - Public API
+ * OpenPaean CLI - Public API
  * Export functions for programmatic usage
  */
 
 // API Client
-export { createApiClient, getApiClient, getPublicApiClient } from './api/client.js';
+export { createApiClient, createNonClearingApiClient, getApiClient, getPublicApiClient } from './api/client.js';
 
 // Authentication
 export {
@@ -51,6 +51,7 @@ export {
   storeAuth,
   clearAuth,
   getConfigPath,
+  getConfigDir,
   type PaeanConfig,
 } from './utils/config.js';
 
@@ -105,4 +106,40 @@ export {
   type McpState,
   type McpToolResult,
 } from './agent/index.js';
+
+// Worker (executor framework, task execution)
+export {
+  WorkerService,
+  getWorker,
+  resetWorker,
+  type WorkerConfig,
+  type WorkerState,
+  type TaskContext,
+  type TaskResult,
+  type WorkerEvent,
+  type WorkerEventHandler,
+  type WorkerStatus,
+  DEFAULT_WORKER_CONFIG,
+  type ExecutorType,
+  type ExecutorConfig,
+  type ExecutorOptions,
+  type ExecutorResult,
+  type AvailabilityStatus,
+  type AgentExecutor,
+  ExecutorRegistry,
+  getExecutorRegistry,
+  ArticulateExecutor,
+  ClaudeExecutor,
+} from './worker/index.js';
+
+// Gateway (cross-device relay)
+export {
+  GatewayService,
+  getGateway,
+  resetGateway,
+  type GatewayConfig,
+  type GatewayState,
+  type GatewayEvent,
+  type GatewayStatus,
+} from './gateway/service.js';
 

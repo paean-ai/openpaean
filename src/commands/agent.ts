@@ -17,8 +17,11 @@ export const agentCommand = new Command('agent')
     .option('--fullscreen', 'Enable fullscreen mode (default: scrolling mode)')
     .option('-d, --debug', 'Enable debug logging')
     .option('-m, --message <message>', 'Send a single message and exit')
+    .option('--gateway', 'Enable gateway relay for remote clients')
+    .option('--worker', 'Enable background worker for task processing')
+    .option('--gateway-interval <ms>', 'Gateway poll interval in milliseconds', '3000')
+    .option('--worker-interval <ms>', 'Worker poll interval in milliseconds', '30000')
     .action(async (options) => {
-        // Check authentication
         if (!isAuthenticated()) {
             console.log(chalk.yellow('⚠️  Not logged in. Run `openpaean login` first.\n'));
             process.exit(1);
@@ -26,9 +29,13 @@ export const agentCommand = new Command('agent')
 
         await runAgentMode({
             mcp: options.mcp !== false,
-            fullscreen: options.fullscreen === true,  // Changed: fullscreen is opt-in
+            fullscreen: options.fullscreen === true,
             debug: options.debug ?? false,
             message: options.message,
+            gatewayEnabled: options.gateway ?? false,
+            gatewayPollInterval: parseInt(options.gatewayInterval, 10) || 3000,
+            workerEnabled: options.worker ?? false,
+            workerPollInterval: parseInt(options.workerInterval, 10) || 30000,
         });
     });
 
@@ -40,8 +47,11 @@ export async function runAgentMode(options: {
     fullscreen?: boolean;
     debug?: boolean;
     message?: string;
+    gatewayEnabled?: boolean;
+    gatewayPollInterval?: number;
+    workerEnabled?: boolean;
+    workerPollInterval?: number;
 }): Promise<void> {
-    // Check authentication
     if (!isAuthenticated()) {
         console.log(chalk.yellow('⚠️  Not logged in. Run `openpaean login` first.\n'));
         process.exit(1);
@@ -171,8 +181,52 @@ export async function runAgentMode(options: {
         return;
     }
 
+    // Initialize gateway service if enabled
+    let gatewayService: import('../gateway/service.js').GatewayService | undefined;
+    if (options.gatewayEnabled) {
+        const { GatewayService } = await import('../gateway/service.js');
+        gatewayService = new GatewayService({
+            pollInterval: options.gatewayPollInterval ?? 3000,
+            debug,
+        });
+        gatewayService.setMcpState(mcpState, onMcpToolCall, mcpClient);
+        if (debug) {
+            console.log(chalk.dim('[Gateway] Enabled — polling for remote requests'));
+        }
+    }
+
+    // Initialize worker service if enabled
+    let workerService: import('../worker/service.js').WorkerService | undefined;
+    if (options.workerEnabled) {
+        const { WorkerService } = await import('../worker/service.js');
+        workerService = new WorkerService({
+            pollInterval: options.workerPollInterval ?? 30000,
+            debug,
+            autonomousMode: true,
+        });
+        workerService.setMcpState(mcpState, onMcpToolCall, mcpClient);
+        if (gatewayService) {
+            workerService.setIdleCheck(() => !gatewayService!.isProcessingRemote());
+        }
+        if (debug) {
+            console.log(chalk.dim('[Worker] Enabled — polling for tasks'));
+        }
+    }
+
     // Start interactive chat (scrolling mode by default, fullscreen if requested)
     try {
+        // Start background services
+        if (gatewayService) {
+            gatewayService.start().catch((err) => {
+                console.log(chalk.yellow(`Gateway failed to start: ${err instanceof Error ? err.message : err}`));
+            });
+        }
+        if (workerService) {
+            workerService.start().catch((err) => {
+                console.log(chalk.yellow(`Worker failed to start: ${err instanceof Error ? err.message : err}`));
+            });
+        }
+
         if (enableFullscreen) {
             await startFullscreenChat({
                 mcpState,
@@ -180,7 +234,6 @@ export async function runAgentMode(options: {
                 debug,
             });
         } else {
-            // New default: scrolling mode (Claude Code style)
             await startScrollingChat({
                 mcpState,
                 onMcpToolCall,
@@ -188,7 +241,13 @@ export async function runAgentMode(options: {
             });
         }
     } finally {
-        // Cleanup MCP connections on exit
+        // Cleanup gateway, worker, and MCP connections on exit
+        if (gatewayService) {
+            await gatewayService.stop().catch(() => {});
+        }
+        if (workerService) {
+            await workerService.stop().catch(() => {});
+        }
         await mcpClient?.disconnectAll();
     }
 }

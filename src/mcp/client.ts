@@ -492,12 +492,23 @@ export class McpClient {
      * Initialize the MCP server with timeout
      */
     private async initializeWithTimeout(instance: McpServerInstance, timeoutMs: number): Promise<void> {
+        let version = '0.5.0';
+        try {
+            const { readFileSync } = await import('fs');
+            const { fileURLToPath } = await import('url');
+            const { dirname, join } = await import('path');
+            const f = fileURLToPath(import.meta.url);
+            const d = dirname(f);
+            const pkg = JSON.parse(readFileSync(join(d, '..', '..', 'package.json'), 'utf-8'));
+            version = pkg.version || version;
+        } catch { /* use default */ }
+
         await this.sendRequest(instance, 'initialize', {
             protocolVersion: '2024-11-05',
             capabilities: {},
             clientInfo: {
                 name: 'openpaean-cli',
-                version: '0.4.0',
+                version,
             },
         }, timeoutMs);
 
