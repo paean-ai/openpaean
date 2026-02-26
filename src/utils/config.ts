@@ -139,12 +139,14 @@ export function getWebUrl(): string {
  */
 export function storeAuth(data: {
   token: string;
+  refreshToken?: string;
   userId?: number;
   email?: string;
   expiresAt?: string;
 }): void {
   setConfig({
     token: data.token,
+    refreshToken: data.refreshToken,
     userId: data.userId,
     email: data.email,
     expiresAt: data.expiresAt,

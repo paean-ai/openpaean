@@ -1,6 +1,6 @@
 {
     "name": "openpaean",
-    "version": "0.5.0",
+    "version": "0.5.1",
     "description": "Open source AI agent CLI with executor framework (a8e, Claude Code), gateway relay, worker mode, MCP support, and scrolling TUI",
     "author": "Paean AI <dev@paean.ai>",
     "license": "MIT",

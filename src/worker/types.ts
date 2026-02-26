@@ -29,6 +29,7 @@ export const DEFAULT_WORKER_CONFIG: WorkerConfig = {
 export interface TaskContext {
     task: TodoItem;
     attempt: number;
+    maxRetries: number;
     previousFailureSummary?: string;
     startedAt: Date;
     conversationId?: string;
@@ -178,7 +179,7 @@ ${cliPayload?.context ? `\nAdditional Context: ${JSON.stringify(cliPayload.conte
 
     if (ctx.attempt > 1 && ctx.previousFailureSummary) {
         return `${basePrompt}
-## Previous Attempt Failed (Attempt ${ctx.attempt}/3)
+## Previous Attempt Failed (Attempt ${ctx.attempt}/${ctx.maxRetries})
 ${ctx.previousFailureSummary}
 
 Please review the previous failure and try a different approach.

@@ -141,7 +141,7 @@ export class GatewayService extends EventEmitter {
     }
 
     async stop(): Promise<void> {
-        if (this.state.status === 'idle') return;
+        if (this.state.status === 'idle' || this.state.status === 'stopping') return;
 
         this.log('Stopping gateway...');
         this.state.status = 'stopping';
@@ -266,8 +266,11 @@ export class GatewayService extends EventEmitter {
             let hasError = false;
             let errorMessage = '';
             const toolCalls: unknown[] = [];
+            let settled = false;
 
             const timeout = setTimeout(async () => {
+                if (settled) return;
+                settled = true;
                 agentService.abort();
                 await this.finishRequest(request, false, '', 'Request timed out', startTime, batchTimer, flushEvents);
                 resolve();
@@ -353,6 +356,8 @@ export class GatewayService extends EventEmitter {
 
                 onDone: async (convId?: string) => {
                     clearTimeout(timeout);
+                    if (settled) return;
+                    settled = true;
                     eventBuffer.push({ type: 'done', data: { conversationId: convId } });
                     this.emit('event', { type: 'remote_done', conversationId: convId } as GatewayEvent);
 

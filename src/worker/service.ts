@@ -160,7 +160,7 @@ export class WorkerService extends EventEmitter {
     }
 
     async stop(): Promise<void> {
-        if (this.state.status === 'idle') return;
+        if (this.state.status === 'idle' || this.state.status === 'stopping') return;
 
         this.log('Stopping worker...');
         this.state.status = 'stopping';
@@ -256,6 +256,7 @@ export class WorkerService extends EventEmitter {
                 const ctx: TaskContext = {
                     task,
                     attempt,
+                    maxRetries,
                     previousFailureSummary,
                     startedAt: new Date(),
                 };
@@ -394,8 +395,11 @@ export class WorkerService extends EventEmitter {
             let hasError = false;
             let errorMessage = '';
             let toolCallCount = 0;
+            let settled = false;
 
             const timeout = setTimeout(() => {
+                if (settled) return;
+                settled = true;
                 agentService.abort();
                 this.emit('event', { type: 'worker_done', taskId, success: false, output: 'Task timed out' } as WorkerEvent);
                 resolve({
@@ -486,6 +490,8 @@ export class WorkerService extends EventEmitter {
 
                 onDone: async (convId?: string) => {
                     clearTimeout(timeout);
+                    if (settled) return;
+                    settled = true;
                     if (ctx.conversationId === undefined) {
                         ctx.conversationId = convId;
                     }

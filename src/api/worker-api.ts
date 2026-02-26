@@ -6,11 +6,17 @@
  * transient 401 errors don't invalidate the user's auth state.
  */
 
+import type { AxiosInstance } from 'axios';
 import { createNonClearingApiClient } from './client.js';
 import type { TodoItem } from './todo.js';
 
-function getWorkerApiClient() {
-    return createNonClearingApiClient();
+let cachedClient: AxiosInstance | null = null;
+
+function getWorkerApiClient(): AxiosInstance {
+    if (!cachedClient) {
+        cachedClient = createNonClearingApiClient();
+    }
+    return cachedClient;
 }
 
 // ============================================

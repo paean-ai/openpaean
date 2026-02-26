@@ -5,10 +5,16 @@
  * don't invalidate user auth.
  */
 
+import type { AxiosInstance } from 'axios';
 import { createNonClearingApiClient } from './client.js';
 
-function getClient() {
-    return createNonClearingApiClient();
+let cachedClient: AxiosInstance | null = null;
+
+function getClient(): AxiosInstance {
+    if (!cachedClient) {
+        cachedClient = createNonClearingApiClient();
+    }
+    return cachedClient;
 }
 
 // ============================================

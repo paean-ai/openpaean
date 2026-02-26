@@ -491,24 +491,28 @@ export class McpClient {
     /**
      * Initialize the MCP server with timeout
      */
+    private static cachedCliVersion: string | null = null;
+
     private async initializeWithTimeout(instance: McpServerInstance, timeoutMs: number): Promise<void> {
-        let version = '0.5.0';
-        try {
-            const { readFileSync } = await import('fs');
-            const { fileURLToPath } = await import('url');
-            const { dirname, join } = await import('path');
-            const f = fileURLToPath(import.meta.url);
-            const d = dirname(f);
-            const pkg = JSON.parse(readFileSync(join(d, '..', '..', 'package.json'), 'utf-8'));
-            version = pkg.version || version;
-        } catch { /* use default */ }
+        if (!McpClient.cachedCliVersion) {
+            try {
+                const { fileURLToPath } = await import('url');
+                const { dirname } = await import('path');
+                const f = fileURLToPath(import.meta.url);
+                const d = dirname(f);
+                const pkg = JSON.parse(readFileSync(join(d, '..', '..', 'package.json'), 'utf-8'));
+                McpClient.cachedCliVersion = pkg.version || '0.5.1';
+            } catch {
+                McpClient.cachedCliVersion = '0.5.1';
+            }
+        }
 
         await this.sendRequest(instance, 'initialize', {
             protocolVersion: '2024-11-05',
             capabilities: {},
             clientInfo: {
                 name: 'openpaean-cli',
-                version,
+                version: McpClient.cachedCliVersion!,
             },
         }, timeoutMs);
 

@@ -201,6 +201,7 @@ async function refreshAuthToken(): Promise<boolean> {
       if (data.token) {
         storeAuth({
           token: data.token,
+          refreshToken: data.refreshToken,
           expiresAt: data.expiresAt,
         });
         return true;
