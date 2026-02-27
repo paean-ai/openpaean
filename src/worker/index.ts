@@ -31,3 +31,4 @@ export {
 
 export { ArticulateExecutor } from './executors/articulate.js';
 export { ClaudeExecutor } from './executors/claude.js';
+export { PaeanclawExecutor } from './executors/paeanclaw.js';

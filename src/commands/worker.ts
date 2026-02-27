@@ -15,6 +15,7 @@ import {
     getExecutorRegistry,
     ArticulateExecutor,
     ClaudeExecutor,
+    PaeanclawExecutor,
 } from '../worker/index.js';
 import { isAuthenticated, getConfigDir } from '../utils/config.js';
 import * as output from '../utils/output.js';
@@ -281,6 +282,7 @@ workerCommand
         const registry = getExecutorRegistry();
         registry.register(new ArticulateExecutor());
         registry.register(new ClaudeExecutor());
+        registry.register(new PaeanclawExecutor());
 
         const executorType: ExecutorType = (options.executor as ExecutorType) || 'articulate';
 

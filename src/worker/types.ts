@@ -86,6 +86,7 @@ export type ExecutorType =
     | 'codex'
     | 'opencode'
     | 'articulate'
+    | 'paeanclaw'
     | 'shell';
 
 export interface ExecutorConfig {
@@ -136,6 +137,7 @@ export const DEFAULT_EXECUTOR_CONFIG: Partial<Record<ExecutorType, ExecutorConfi
     codex: { type: 'codex', enabled: true, timeout: 600000 },
     opencode: { type: 'opencode', enabled: true, timeout: 600000 },
     articulate: { type: 'articulate', enabled: true, timeout: 600000 },
+    paeanclaw: { type: 'paeanclaw', enabled: true, timeout: 600000 },
 };
 
 export function buildTaskPrompt(ctx: TaskContext): string {
