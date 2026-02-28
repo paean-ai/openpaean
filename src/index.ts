@@ -38,6 +38,21 @@ export {
   type TodoPreferences,
 } from './api/todo.js';
 
+// Credits & Deposit API
+export {
+  getCreditsStatus,
+  getDepositInfo,
+  pollDeposits,
+  getDepositHistory,
+  getDepositStatus,
+  type CreditsStatus,
+  type DepositInfo,
+  type NetworkDepositInfo,
+  type DepositRecord,
+  type PollResult,
+  type DepositStatusResult,
+} from './api/credits.js';
+
 // Configuration
 export {
   getConfig,

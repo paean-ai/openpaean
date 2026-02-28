@@ -18,6 +18,7 @@ import { agentCommand, runAgentMode } from './commands/agent.js';
 import { updateCommand } from './commands/update.js';
 import { workerCommand } from './commands/worker.js';
 import { gatewayCommand } from './commands/gateway.js';
+import { creditsCommand } from './commands/credits.js';
 import { getConfigPath } from './utils/config.js';
 
 // Read version from package.json
@@ -68,6 +69,7 @@ program.addCommand(serveCommand);
 program.addCommand(validateCommand);
 program.addCommand(workerCommand);
 program.addCommand(gatewayCommand);
+program.addCommand(creditsCommand);
 program.addCommand(updateCommand);
 
 // Parse arguments
