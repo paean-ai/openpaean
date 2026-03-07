@@ -234,7 +234,7 @@ export function getApiClient(options?: { clearAuthOn401?: boolean }): AxiosInsta
 
 /**
  * Create a non-clearing API client (doesn't invalidate auth on transient 401s).
- * Used by worker and gateway operations.
+ * Used by gateway operations.
  */
 export function createNonClearingApiClient(): AxiosInstance {
   return createApiClient({ clearAuthOn401: false });

@@ -122,31 +122,6 @@ export {
   type McpToolResult,
 } from './agent/index.js';
 
-// Worker (executor framework, task execution)
-export {
-  WorkerService,
-  getWorker,
-  resetWorker,
-  type WorkerConfig,
-  type WorkerState,
-  type TaskContext,
-  type TaskResult,
-  type WorkerEvent,
-  type WorkerEventHandler,
-  type WorkerStatus,
-  DEFAULT_WORKER_CONFIG,
-  type ExecutorType,
-  type ExecutorConfig,
-  type ExecutorOptions,
-  type ExecutorResult,
-  type AvailabilityStatus,
-  type AgentExecutor,
-  ExecutorRegistry,
-  getExecutorRegistry,
-  ArticulateExecutor,
-  ClaudeExecutor,
-} from './worker/index.js';
-
 // Gateway (cross-device relay)
 export {
   GatewayService,
