@@ -18,9 +18,7 @@ export const agentCommand = new Command('agent')
     .option('-d, --debug', 'Enable debug logging')
     .option('-m, --message <message>', 'Send a single message and exit')
     .option('--gateway', 'Enable gateway relay for remote clients')
-    .option('--worker', 'Enable background worker for task processing')
     .option('--gateway-interval <ms>', 'Gateway poll interval in milliseconds', '3000')
-    .option('--worker-interval <ms>', 'Worker poll interval in milliseconds', '30000')
     .action(async (options) => {
         if (!isAuthenticated()) {
             console.log(chalk.yellow('⚠️  Not logged in. Run `openpaean login` first.\n'));
@@ -34,8 +32,6 @@ export const agentCommand = new Command('agent')
             message: options.message,
             gatewayEnabled: options.gateway ?? false,
             gatewayPollInterval: parseInt(options.gatewayInterval, 10) || 3000,
-            workerEnabled: options.worker ?? false,
-            workerPollInterval: parseInt(options.workerInterval, 10) || 30000,
         });
     });
 
@@ -49,8 +45,6 @@ export async function runAgentMode(options: {
     message?: string;
     gatewayEnabled?: boolean;
     gatewayPollInterval?: number;
-    workerEnabled?: boolean;
-    workerPollInterval?: number;
 }): Promise<void> {
     if (!isAuthenticated()) {
         console.log(chalk.yellow('⚠️  Not logged in. Run `openpaean login` first.\n'));
@@ -195,24 +189,6 @@ export async function runAgentMode(options: {
         }
     }
 
-    // Initialize worker service if enabled
-    let workerService: import('../worker/service.js').WorkerService | undefined;
-    if (options.workerEnabled) {
-        const { WorkerService } = await import('../worker/service.js');
-        workerService = new WorkerService({
-            pollInterval: options.workerPollInterval ?? 30000,
-            debug,
-            autonomousMode: true,
-        });
-        workerService.setMcpState(mcpState, onMcpToolCall, mcpClient);
-        if (gatewayService) {
-            workerService.setIdleCheck(() => !gatewayService!.isProcessingRemote());
-        }
-        if (debug) {
-            console.log(chalk.dim('[Worker] Enabled — polling for tasks'));
-        }
-    }
-
     // Start interactive chat (scrolling mode by default, fullscreen if requested)
     try {
         // Start background services
@@ -221,12 +197,6 @@ export async function runAgentMode(options: {
                 console.log(chalk.yellow(`Gateway failed to start: ${err instanceof Error ? err.message : err}`));
             });
         }
-        if (workerService) {
-            workerService.start().catch((err) => {
-                console.log(chalk.yellow(`Worker failed to start: ${err instanceof Error ? err.message : err}`));
-            });
-        }
-
         if (enableFullscreen) {
             await startFullscreenChat({
                 mcpState,
@@ -241,12 +211,9 @@ export async function runAgentMode(options: {
             });
         }
     } finally {
-        // Cleanup gateway, worker, and MCP connections on exit
+        // Cleanup gateway and MCP connections on exit
         if (gatewayService) {
             await gatewayService.stop().catch(() => {});
-        }
-        if (workerService) {
-            await workerService.stop().catch(() => {});
         }
         await mcpClient?.disconnectAll();
     }

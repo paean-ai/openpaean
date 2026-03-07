@@ -5,7 +5,7 @@
  * management capabilities for the OpenPaean CLI.
  * 
  * This is the open-source foundation for local tool execution.
- * For advanced features (autonomous worker, CLI agent orchestration),
+ * For advanced features (CLI agent orchestration),
  * see the commercial Paean CLI.
  * 
  * Security:
