@@ -17,6 +17,8 @@ import {
     claimGatewayRequest,
     pushGatewayEvents,
     completeGatewayRequest,
+    registerGatewayInstance,
+    unregisterGatewayInstance,
     type GatewayRequest,
     type GatewayStreamEvent,
 } from '../api/gateway-api.js';
@@ -134,10 +136,25 @@ export class GatewayService extends EventEmitter {
         this.abortController = new AbortController();
         this.emit('event', { type: 'started' } as GatewayEvent);
 
+        await this.registerWithCloud();
         this.startHeartbeat();
         this.startPolling();
 
         this.log('Gateway started');
+    }
+
+    private async registerWithCloud(): Promise<void> {
+        if (!this.sessionId) return;
+        const result = await registerGatewayInstance(this.sessionId, this.deviceName, {
+            capabilities: ['gateway', 'mcp'],
+            workingDirectory: process.cwd(),
+            platform: `${os.platform()} ${os.arch()}`,
+        });
+        if (!result.success) {
+            this.log(`Registration failed: ${result.error}`);
+        } else {
+            this.log('Registered with cloud backend');
+        }
     }
 
     async stop(): Promise<void> {
@@ -166,6 +183,7 @@ export class GatewayService extends EventEmitter {
         }
 
         if (this.sessionId) {
+            await unregisterGatewayInstance(this.sessionId).catch(() => {});
             await sendHeartbeat(this.sessionId, {
                 status: 'idle',
                 completedCount: this.state.completedCount,
@@ -189,6 +207,13 @@ export class GatewayService extends EventEmitter {
         if (!this.sessionId) return;
         try {
             const status: ApiWorkerStatus = this.state.currentRequest ? 'running' : 'idle';
+
+            await registerGatewayInstance(this.sessionId, this.deviceName, {
+                capabilities: ['gateway', 'mcp'],
+                workingDirectory: process.cwd(),
+                platform: `${os.platform()} ${os.arch()}`,
+            }).catch(() => {});
+
             const result = await sendHeartbeat(this.sessionId, {
                 status,
                 completedCount: this.state.completedCount,

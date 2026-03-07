@@ -111,3 +111,59 @@ export async function completeGatewayRequest(
         };
     }
 }
+
+/**
+ * Register this CLI gateway instance with the cloud backend.
+ */
+export async function registerGatewayInstance(
+    sessionId: string,
+    deviceName: string,
+    meta: {
+        capabilities?: string[];
+        workingDirectory?: string;
+        platform?: string;
+        cliVersion?: string;
+    } = {}
+): Promise<{ success: boolean; error?: string }> {
+    const client = getClient();
+    try {
+        const response = await client.post<{ success: boolean; error?: string }>(
+            '/agent/gateway/register',
+            {
+                sessionId,
+                deviceName,
+                capabilities: meta.capabilities || ['gateway', 'mcp'],
+                workingDirectory: meta.workingDirectory,
+                platform: meta.platform,
+                cliVersion: meta.cliVersion,
+            }
+        );
+        return response.data;
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+        };
+    }
+}
+
+/**
+ * Unregister this CLI gateway instance from the cloud backend.
+ */
+export async function unregisterGatewayInstance(
+    sessionId: string
+): Promise<{ success: boolean; error?: string }> {
+    const client = getClient();
+    try {
+        const response = await client.delete<{ success: boolean; error?: string }>(
+            '/agent/gateway/register',
+            { data: { sessionId } }
+        );
+        return response.data;
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+        };
+    }
+}
