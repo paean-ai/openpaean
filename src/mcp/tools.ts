@@ -30,6 +30,7 @@ import {
 import { detectProject, getProjectId } from '../utils/project.js';
 import { getSystemTools, executeSystemTool } from './system.js';
 import { getCliAgentTools, executeCliAgentTool, CLI_AGENT_TOOL_NAMES } from './cli-agents.js';
+import { getCronToolDefinitions, executeCronTool, CRON_TOOL_NAMES } from './cron.js';
 
 /** System tool names that must be routed to executeSystemTool */
 const SYSTEM_TOOL_NAMES = new Set([
@@ -220,6 +221,8 @@ export function getMcpTools(): Tool[] {
     ...getSystemTools(),
     // CLI agent tools (invoke external coding CLIs)
     ...getCliAgentTools(),
+    // Session-scoped cron/scheduler tools
+    ...getCronToolDefinitions(),
     // Custom registered tools
     ...Array.from(customToolRegistry.values()).map(({ tool }) => tool),
     // Task management tools
@@ -823,6 +826,10 @@ export async function executeMcpTool(
       // Check if it's a CLI agent tool
       if (CLI_AGENT_TOOL_NAMES.has(toolName)) {
         return executeCliAgentTool(toolName, args);
+      }
+      // Check if it's a cron/scheduler tool
+      if (CRON_TOOL_NAMES.has(toolName)) {
+        return executeCronTool(toolName, args);
       }
       // Check if it's a custom registered tool
       const customEntry = customToolRegistry.get(toolName);
