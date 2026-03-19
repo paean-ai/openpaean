@@ -516,7 +516,8 @@ export async function executeCronTool(
         job: toPublicJob(job),
         note: 'This job will inject the prompt into the main agent conversation on each trigger. ' +
               'If the agent is busy, the execution will be skipped. ' +
-              'The job is session-scoped and will be removed when the CLI session ends.',
+              'The job is session-scoped and will be removed when the CLI session ends. ' +
+              'Use `paean_cron_get` or `paean_cron_list` tools to check job status — there is no HTTP API.',
       };
     }
 
