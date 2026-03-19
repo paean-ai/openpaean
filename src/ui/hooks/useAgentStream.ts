@@ -3,9 +3,10 @@
  * Custom hook for managing agent streaming communication
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { agentService } from '../../agent/service.js';
 import type { McpState, McpToolResult, AgentStreamCallbacks } from '../../agent/types.js';
+import { onCronPrompt, setAgentBusyChecker } from '../../mcp/cron.js';
 
 export interface Message {
     id: string;
@@ -162,6 +163,24 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
             callbacks.onError?.((error as Error).message);
         }
     }, [mcpState, onMcpToolCall, cliMode]);
+
+    // Register agent-busy checker so the cron scheduler knows when to skip
+    const isProcessingRef = useRef(isProcessing);
+    isProcessingRef.current = isProcessing;
+
+    useEffect(() => {
+        setAgentBusyChecker(() => isProcessingRef.current);
+    }, []);
+
+    // Subscribe to cron prompt events and auto-send when idle
+    useEffect(() => {
+        const unsubscribe = onCronPrompt((event) => {
+            if (!isProcessingRef.current) {
+                sendMessage(`[Scheduled Task: ${event.schedule}] ${event.prompt}`);
+            }
+        });
+        return unsubscribe;
+    }, [sendMessage]);
 
     return {
         messages,

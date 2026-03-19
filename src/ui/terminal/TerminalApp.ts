@@ -29,6 +29,7 @@ import {
     getCompactLogo,
     bold
 } from '../theme/index.js';
+import { onCronPrompt, setAgentBusyChecker } from '../../mcp/cron.js';
 
 /**
  * Command result type
@@ -344,6 +345,18 @@ ${info('Terminal:')}
      * Start the interactive loop
      */
     async start(): Promise<void> {
+        // Register agent-busy checker for the cron scheduler
+        setAgentBusyChecker(() => this.isProcessing);
+
+        // Subscribe to cron prompt events
+        onCronPrompt((event) => {
+            if (!this.isProcessing) {
+                const label = `[Scheduled Task: ${event.schedule}]`;
+                console.log(`\n${info(label)}`);
+                this.handleInput(`${label} ${event.prompt}`);
+            }
+        });
+
         // Show welcome message
         this.printWelcome();
 

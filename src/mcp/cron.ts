@@ -1,22 +1,27 @@
 /**
  * Session-Scoped Cron Scheduler (Open Source)
  * 
- * Provides in-memory scheduled task execution that lives only for the
- * current CLI session. All jobs are automatically cleaned up when the
- * process exits.
+ * Pushes natural-language prompts into the main agent interaction on a
+ * schedule, as if the user had typed them.  This gives cron jobs full
+ * agent capabilities (tool use, reasoning, multi-step tasks) instead of
+ * being limited to simple shell commands.
+ * 
+ * Key behaviour:
+ * - When a job fires and the agent is **idle**, the prompt is injected
+ *   into the conversation automatically.
+ * - When the agent is **busy**, the execution is skipped (recorded as
+ *   "skipped: agent busy") to avoid conflicts.
+ * - All jobs are session-scoped and cleaned up on process exit.
  * 
  * Supports:
  * - Fixed interval (every N seconds/minutes/hours)
  * - Hourly at specific minute (e.g. "every hour at :15")
  * - Cron expressions (minute hour day month weekday)
- * 
- * Security: only executes commands through the existing shell tool
- * infrastructure which enforces whitelist and dangerous-pattern checks.
  */
 
 import { type Tool } from '@modelcontextprotocol/sdk/types.js';
 import { randomBytes } from 'crypto';
-import { executeSystemTool } from './system.js';
+import { EventEmitter } from 'events';
 
 // ============================================
 // Types
@@ -25,12 +30,14 @@ import { executeSystemTool } from './system.js';
 export interface CronJob {
   id: string;
   schedule: string;
-  command: string;
+  /** Natural-language prompt injected into the agent conversation */
+  prompt: string;
   cwd?: string;
   createdAt: string;
   lastRunAt: string | null;
   nextRunAt: string | null;
   runCount: number;
+  skipCount: number;
   lastResult: { success: boolean; summary: string } | null;
   status: 'active' | 'paused';
 }
@@ -47,6 +54,47 @@ interface CronFields {
   dayOfMonth: number[];
   month: number[];
   dayOfWeek: number[];
+}
+
+// ============================================
+// Prompt Injection Event Bus
+// ============================================
+
+export interface CronPromptEvent {
+  jobId: string;
+  prompt: string;
+  cwd?: string;
+  schedule: string;
+}
+
+const cronEmitter = new EventEmitter();
+
+/**
+ * Register a callback that fires whenever a cron job wants to inject a
+ * prompt into the main agent conversation.
+ * Returns an unsubscribe function.
+ */
+export function onCronPrompt(
+  callback: (event: CronPromptEvent) => void,
+): () => void {
+  cronEmitter.on('cron-prompt', callback);
+  return () => {
+    cronEmitter.off('cron-prompt', callback);
+  };
+}
+
+/**
+ * Callback that returns `true` when the agent is currently processing a
+ * message and should not be interrupted by cron prompts.
+ */
+let agentBusyChecker: (() => boolean) | null = null;
+
+/**
+ * Register a function that the scheduler calls before injecting a prompt.
+ * If it returns `true`, the prompt is skipped for that tick.
+ */
+export function setAgentBusyChecker(checker: () => boolean): void {
+  agentBusyChecker = checker;
 }
 
 // ============================================
@@ -87,7 +135,6 @@ function generateId(): string {
 function parseSchedule(schedule: string): { intervalMs: number | null; cronFields: CronFields | null } {
   const s = schedule.trim().toLowerCase();
 
-  // "every Ns" / "every Nm" / "every Nh" — fixed interval
   const intervalMatch = s.match(/^every\s+(\d+)\s*(s|sec|seconds?|m|min|minutes?|h|hr|hours?)$/);
   if (intervalMatch) {
     const value = parseInt(intervalMatch[1], 10);
@@ -96,7 +143,6 @@ function parseSchedule(schedule: string): { intervalMs: number | null; cronField
     return { intervalMs: value * (multipliers[unit] || 60_000), cronFields: null };
   }
 
-  // "every hour at :MM"
   const hourlyMatch = s.match(/^every\s+hour\s+at\s+:(\d{1,2})$/);
   if (hourlyMatch) {
     const minute = parseInt(hourlyMatch[1], 10);
@@ -113,7 +159,6 @@ function parseSchedule(schedule: string): { intervalMs: number | null; cronField
     };
   }
 
-  // Cron expression: "M H DoM Mon DoW" (5 fields)
   const parts = schedule.trim().split(/\s+/);
   if (parts.length === 5) {
     try {
@@ -195,33 +240,36 @@ function getNextCronTime(fields: CronFields, after: Date): Date {
 }
 
 // ============================================
-// Job Execution
+// Job Execution — Prompt Injection
 // ============================================
 
 async function executeJob(job: InternalCronJob): Promise<void> {
+  if (agentBusyChecker && agentBusyChecker()) {
+    job.skipCount++;
+    job.lastResult = {
+      success: false,
+      summary: 'Skipped: agent is busy processing another request',
+    };
+    if (job.cronFields && job.status === 'active') {
+      scheduleNextCronRun(job);
+    }
+    return;
+  }
+
   job.lastRunAt = new Date().toISOString();
   job.runCount++;
 
-  try {
-    const result = await executeSystemTool('paean_execute_shell', {
-      command: job.command,
-      cwd: job.cwd,
-      timeout: 300_000,
-    });
+  cronEmitter.emit('cron-prompt', {
+    jobId: job.id,
+    prompt: job.prompt,
+    cwd: job.cwd,
+    schedule: job.schedule,
+  } satisfies CronPromptEvent);
 
-    const r = result as { success?: boolean; stdout?: string; stderr?: string; error?: string };
-    job.lastResult = {
-      success: r.success === true,
-      summary: r.success
-        ? (r.stdout?.slice(0, 200) || 'OK')
-        : (r.error?.slice(0, 200) || r.stderr?.slice(0, 200) || 'Failed'),
-    };
-  } catch (error) {
-    job.lastResult = {
-      success: false,
-      summary: (error instanceof Error ? error.message : String(error)).slice(0, 200),
-    };
-  }
+  job.lastResult = {
+    success: true,
+    summary: `Prompt injected: "${job.prompt.slice(0, 100)}${job.prompt.length > 100 ? '...' : ''}"`,
+  };
 
   if (job.cronFields && job.status === 'active') {
     scheduleNextCronRun(job);
@@ -272,12 +320,13 @@ function toPublicJob(job: InternalCronJob): CronJob {
   return {
     id: job.id,
     schedule: job.schedule,
-    command: job.command,
+    prompt: job.prompt,
     cwd: job.cwd,
     createdAt: job.createdAt,
     lastRunAt: job.lastRunAt,
     nextRunAt: job.nextRunAt,
     runCount: job.runCount,
+    skipCount: job.skipCount,
     lastResult: job.lastResult,
     status: job.status,
   };
@@ -292,11 +341,12 @@ export function getCronToolDefinitions(): Tool[] {
     {
       name: 'paean_cron_create',
       description:
-        'Create a session-scoped scheduled task (cron job). ' +
-        'The job runs repeatedly on the given schedule until removed or the session ends. ' +
+        'Create a session-scoped scheduled task. ' +
+        'The prompt is injected into the main agent conversation on each trigger, ' +
+        'giving the task full agent capabilities (tool use, reasoning, multi-step work). ' +
+        'If the agent is busy when a job fires, execution is skipped. ' +
         'Schedules: "every 5m", "every 1h", "every 30s", "every hour at :15", ' +
-        'or a 5-field cron expression like "*/10 * * * *". ' +
-        'Commands are executed through the shell tool with security checks.',
+        'or a 5-field cron expression like "*/10 * * * *".',
       inputSchema: {
         type: 'object',
         properties: {
@@ -306,23 +356,27 @@ export function getCronToolDefinitions(): Tool[] {
               'Schedule expression. Examples: "every 5m", "every 1h", "every 30s", ' +
               '"every hour at :13", "*/10 * * * *" (every 10 min), "0 */2 * * *" (every 2 hours)',
           },
-          command: {
+          prompt: {
             type: 'string',
-            description: 'Shell command to execute on each trigger',
+            description:
+              'Natural-language prompt to inject into the agent conversation on each trigger. ' +
+              'This is equivalent to the user typing this message. The agent will process it ' +
+              'with full tool access and reasoning capabilities. ' +
+              'Example: "Check disk usage and alert me if any partition is above 90%"',
           },
           cwd: {
             type: 'string',
-            description: 'Working directory for the command (optional)',
+            description: 'Working directory context for the prompt (optional)',
           },
         },
-        required: ['schedule', 'command'],
+        required: ['schedule', 'prompt'],
       },
     },
     {
       name: 'paean_cron_list',
       description:
-        'List all session-scoped cron jobs. Shows schedule, status, run count, ' +
-        'last/next run time, and last result for each job.',
+        'List all session-scoped cron jobs. Shows schedule, prompt, status, run count, ' +
+        'skip count, last/next run time, and last result for each job.',
       inputSchema: {
         type: 'object',
         properties: {},
@@ -360,7 +414,7 @@ export function getCronToolDefinitions(): Tool[] {
     },
     {
       name: 'paean_cron_pause',
-      description: 'Pause an active cron job. The job remains registered but stops executing.',
+      description: 'Pause an active cron job. The job remains registered but stops firing prompts.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -411,11 +465,11 @@ export async function executeCronTool(
   switch (toolName) {
     case 'paean_cron_create': {
       const schedule = args.schedule as string;
-      const command = args.command as string;
+      const prompt = args.prompt as string;
       const cwd = args.cwd as string | undefined;
 
-      if (!schedule || !command) {
-        return { success: false, error: 'schedule and command are required' };
+      if (!schedule || !prompt) {
+        return { success: false, error: 'schedule and prompt are required' };
       }
 
       if (cronJobs.size >= 20) {
@@ -439,12 +493,13 @@ export async function executeCronTool(
       const job: InternalCronJob = {
         id,
         schedule,
-        command,
+        prompt,
         cwd,
         createdAt: new Date().toISOString(),
         lastRunAt: null,
         nextRunAt: null,
         runCount: 0,
+        skipCount: 0,
         lastResult: null,
         status: 'active',
         timerId: null,
@@ -459,7 +514,9 @@ export async function executeCronTool(
         success: true,
         message: `Cron job created: ${schedule}`,
         job: toPublicJob(job),
-        note: 'This job is session-scoped and will be removed when the CLI session ends.',
+        note: 'This job will inject the prompt into the main agent conversation on each trigger. ' +
+              'If the agent is busy, the execution will be skipped. ' +
+              'The job is session-scoped and will be removed when the CLI session ends.',
       };
     }
 
@@ -469,7 +526,7 @@ export async function executeCronTool(
         success: true,
         jobs,
         count: jobs.length,
-        note: 'All jobs are session-scoped. They will be removed when the CLI session ends.',
+        note: 'All jobs are session-scoped. Prompts are injected into the main conversation when triggered.',
       };
     }
 

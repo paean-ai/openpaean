@@ -99,14 +99,17 @@ export {
   getCommandWhitelist,
 } from './mcp/system.js';
 
-// Cron/Scheduler Tools (session-scoped)
+// Cron/Scheduler Tools (session-scoped, prompt-injection based)
 export {
   getCronToolDefinitions,
   executeCronTool,
   CRON_TOOL_NAMES,
   getActiveCronCount,
   clearAllCronJobs,
+  onCronPrompt,
+  setAgentBusyChecker,
   type CronJob,
+  type CronPromptEvent,
 } from './mcp/cron.js';
 
 // CLI Agent Tools (invoke external coding CLIs)
