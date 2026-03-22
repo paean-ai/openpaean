@@ -215,9 +215,7 @@ export class AgentService {
                 break;
 
             case 'done':
-                if (event.data.conversationId) {
-                    callbacks.onDone?.(event.data.conversationId);
-                }
+                callbacks.onDone?.(event.data.conversationId);
                 break;
 
             case 'error':

@@ -267,8 +267,7 @@ ${info('Terminal:')}
     /**
      * Handle stream done
      */
-    private handleStreamDone(conversationId: string): void {
-        // Update current conversation ID to maintain context
+    private handleStreamDone(conversationId?: string): void {
         if (conversationId && !this.currentConversationId) {
             this.currentConversationId = conversationId;
             if (this.statusState.isDebugMode) {

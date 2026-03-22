@@ -44,6 +44,7 @@ export class WechatGatewayService extends EventEmitter {
     private mcpState: unknown = null;
     private onMcpToolCall: unknown = null;
     private contextTokenCache = new Map<string, string>();
+    private conversationIdCache = new Map<string, string>();
 
     constructor(config: WechatGatewayConfig = {}) {
         super();
@@ -150,7 +151,10 @@ export class WechatGatewayService extends EventEmitter {
                 this.log(`Agent error: ${error}`);
                 this.emit('event', { type: 'remote_error', error } as WechatGatewayEvent);
             },
-            onDone: async () => {
+            onDone: async (convId?: string) => {
+                if (convId) {
+                    this.conversationIdCache.set(senderId, convId);
+                }
                 if (responseText && this.account) {
                     const ctx = this.contextTokenCache.get(senderId);
                     if (ctx) {
@@ -168,6 +172,7 @@ export class WechatGatewayService extends EventEmitter {
         };
 
         agentService.streamMessage(text, callbacks, {
+            conversationId: this.conversationIdCache.get(senderId),
             mcpState: this.mcpState as McpState | undefined,
             cliMode: { enabled: true },
         });

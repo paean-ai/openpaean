@@ -53,7 +53,7 @@ export interface AgentStreamCallbacks {
         toolName: string,
         args: Record<string, unknown>
     ) => Promise<McpToolResult>;
-    onDone?: (conversationId: string) => void;
+    onDone?: (conversationId?: string) => void;
     onError?: (error: string) => void;
 }
 
