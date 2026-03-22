@@ -25,6 +25,12 @@ export type WechatGatewayEvent =
     | { type: 'stopped' }
     | { type: 'message_received'; sender: string; text: string }
     | { type: 'reply_sent'; sender: string }
+    | { type: 'processing_start'; sender: string; text: string }
+    | { type: 'processing_done'; sender: string }
+    | { type: 'remote_content'; text: string; partial: boolean }
+    | { type: 'remote_tool_call'; id: string; name: string; serverName?: string; isMcp: boolean }
+    | { type: 'remote_tool_result'; id: string; name: string; status: 'completed' | 'error' }
+    | { type: 'remote_error'; error: string }
     | { type: 'error'; error: string };
 
 const MAX_CONSECUTIVE_FAILURES = 3;
@@ -105,22 +111,45 @@ export class WechatGatewayService extends EventEmitter {
         if (!this.account) return;
         let responseText = '';
 
+        this.emit('event', { type: 'processing_start', sender: senderId, text } as WechatGatewayEvent);
+
         const callbacks: AgentStreamCallbacks = {
             onContent: (t: string, partial: boolean) => {
                 if (partial) responseText += t; else responseText = t;
+                this.emit('event', { type: 'remote_content', text: t, partial } as WechatGatewayEvent);
+            },
+            onToolCall: (id: string, name: string) => {
+                this.emit('event', { type: 'remote_tool_call', id, name, isMcp: false } as WechatGatewayEvent);
+            },
+            onToolResult: (id: string, name: string, result?: unknown) => {
+                const isError = result && typeof result === 'object' &&
+                    (result as Record<string, unknown>).isError === true;
+                this.emit('event', { type: 'remote_tool_result', id, name, status: isError ? 'error' : 'completed' } as WechatGatewayEvent);
             },
             onMcpToolCall: async (callId, serverName, toolName, args): Promise<McpToolResult> => {
+                this.emit('event', { type: 'remote_tool_call', id: callId, name: toolName, serverName, isMcp: true } as WechatGatewayEvent);
+
+                let mcpResult: McpToolResult;
                 if (typeof this.onMcpToolCall === 'function') {
-                    try { return await (this.onMcpToolCall as (c: string, s: string, t: string, a: Record<string, unknown>) => Promise<McpToolResult>)(callId, serverName, toolName, args); }
-                    catch (e) { return { content: [{ type: 'text', text: `Error: ${e instanceof Error ? e.message : e}` }], isError: true }; }
-                }
-                if (toolName.startsWith('paean_execute') || toolName.startsWith('paean_check') || toolName.startsWith('paean_kill')) {
+                    try {
+                        mcpResult = await (this.onMcpToolCall as (c: string, s: string, t: string, a: Record<string, unknown>) => Promise<McpToolResult>)(callId, serverName, toolName, args);
+                    } catch (e) {
+                        mcpResult = { content: [{ type: 'text', text: `Error: ${e instanceof Error ? e.message : e}` }], isError: true };
+                    }
+                } else if (toolName.startsWith('paean_execute') || toolName.startsWith('paean_check') || toolName.startsWith('paean_kill')) {
                     const result = await executeSystemTool(toolName, args, { autonomousMode: true }) as { success: boolean; [k: string]: unknown };
-                    return { content: [{ type: 'text', text: JSON.stringify(result) }], isError: !result.success };
+                    mcpResult = { content: [{ type: 'text', text: JSON.stringify(result) }], isError: !result.success };
+                } else {
+                    mcpResult = { content: [{ type: 'text', text: 'MCP not available' }], isError: true };
                 }
-                return { content: [{ type: 'text', text: 'MCP not available' }], isError: true };
+
+                this.emit('event', { type: 'remote_tool_result', id: callId, name: toolName, status: mcpResult.isError ? 'error' : 'completed' } as WechatGatewayEvent);
+                return mcpResult;
             },
-            onError: (error: string) => { this.log(`Agent error: ${error}`); },
+            onError: (error: string) => {
+                this.log(`Agent error: ${error}`);
+                this.emit('event', { type: 'remote_error', error } as WechatGatewayEvent);
+            },
             onDone: async () => {
                 if (responseText && this.account) {
                     const ctx = this.contextTokenCache.get(senderId);
@@ -134,6 +163,7 @@ export class WechatGatewayService extends EventEmitter {
                         this.emit('event', { type: 'reply_sent', sender: senderId } as WechatGatewayEvent);
                     }
                 }
+                this.emit('event', { type: 'processing_done', sender: senderId } as WechatGatewayEvent);
             },
         };
 

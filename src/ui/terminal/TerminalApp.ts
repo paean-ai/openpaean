@@ -86,6 +86,7 @@ export interface TerminalAppOptions {
         args: Record<string, unknown>
     ) => Promise<McpToolResult>;
     debug?: boolean;
+    wechatService?: import('../../wechat/service.js').WechatGatewayService;
 }
 
 /**
@@ -357,6 +358,9 @@ ${info('Terminal:')}
             }
         });
 
+        // Subscribe to WeChat service events
+        this.setupWechatListener();
+
         // Show welcome message
         this.printWelcome();
 
@@ -370,20 +374,86 @@ ${info('Terminal:')}
         this.rl.prompt();
     }
 
+    private setupWechatListener(): void {
+        const svc = this.options.wechatService;
+        if (!svc) return;
+
+        svc.on('event', (event: import('../../wechat/service.js').WechatGatewayEvent) => {
+            switch (event.type) {
+                case 'started':
+                    process.stdout.write(`${success('💬')} ${muted('WeChat channel connected')}\n`);
+                    break;
+
+                case 'stopped':
+                    process.stdout.write(`${warning('💬')} ${muted('WeChat channel disconnected')}\n`);
+                    break;
+
+                case 'processing_start': {
+                    const sender = event.sender.split('@')[0] || event.sender;
+                    const preview = event.text.length > 80 ? event.text.slice(0, 80) + '...' : event.text;
+                    process.stdout.write(`\n${success('💬')} ${primary('[WeChat]')} ${muted(`from ${sender}:`)} ${preview}\n`);
+                    break;
+                }
+
+                case 'remote_tool_call':
+                    if (event.isMcp && event.serverName) {
+                        process.stdout.write(`${mcpSymbol()} ${muted(`[${event.serverName}]`)} ${event.name}...`);
+                    } else {
+                        process.stdout.write(`${toolSymbol()} ${event.name}...`);
+                    }
+                    break;
+
+                case 'remote_tool_result':
+                    if (event.status === 'error') {
+                        process.stdout.write(` ${errorColor('✗')}\n`);
+                    } else {
+                        process.stdout.write(` ${success('✓')}\n`);
+                    }
+                    break;
+
+                case 'remote_content':
+                    if (event.partial) {
+                        process.stdout.write(event.text);
+                    }
+                    break;
+
+                case 'remote_error':
+                    process.stdout.write(`\n${errorColor(`[WeChat Error] ${event.error}`)}\n`);
+                    break;
+
+                case 'reply_sent': {
+                    const to = event.sender.split('@')[0] || event.sender;
+                    process.stdout.write(`${success('✓')} ${muted(`Reply sent to ${to}`)}\n\n`);
+                    break;
+                }
+
+                case 'processing_done':
+                    break;
+            }
+        });
+    }
+
     /**
      * Print welcome message
      */
     private printWelcome(): void {
         const width = getTerminalWidth();
-        // Use Paean Blue for the divider
         const line = primary('─'.repeat(Math.min(width, 60)));
 
         console.log('');
-        // Print ASCII Logo
         console.log(primary(getLogoAscii()));
 
         console.log(line);
         console.log(bold('  Interactive Agent Session'));
+
+        // Show active channels
+        const channels: string[] = [];
+        if (this.mcpToolCount > 0) channels.push(`⚡ ${this.mcpToolCount} MCP tools`);
+        if (this.options.wechatService) channels.push('💬 WeChat channel');
+        if (channels.length > 0) {
+            console.log(success(`  ${channels.join(' · ')}`));
+        }
+
         console.log(muted('  Type /help for commands, Ctrl+C to exit'));
         console.log(line);
         console.log('');

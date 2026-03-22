@@ -21,6 +21,7 @@ export interface ChatOptions {
         args: Record<string, unknown>
     ) => Promise<McpToolResult>;
     debug?: boolean;
+    wechatService?: import('../wechat/service.js').WechatGatewayService;
 }
 
 /**
@@ -92,7 +93,12 @@ export async function startFullscreenChat(options: ChatOptions = {}): Promise<vo
 export async function startScrollingChat(options: ChatOptions = {}): Promise<void> {
     const { TerminalApp } = await import('../ui/terminal/TerminalApp.js');
 
-    const app = new TerminalApp(options);
+    const app = new TerminalApp({
+        mcpState: options.mcpState,
+        onMcpToolCall: options.onMcpToolCall,
+        debug: options.debug,
+        wechatService: options.wechatService,
+    });
     await app.start();
 }
 

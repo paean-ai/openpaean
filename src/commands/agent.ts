@@ -227,6 +227,7 @@ export async function runAgentMode(options: {
                 mcpState,
                 onMcpToolCall,
                 debug,
+                wechatService,
             });
         }
     } finally {
