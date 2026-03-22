@@ -19,6 +19,7 @@ export const agentCommand = new Command('agent')
     .option('-m, --message <message>', 'Send a single message and exit')
     .option('--gateway', 'Enable gateway relay for remote clients')
     .option('--gateway-interval <ms>', 'Gateway poll interval in milliseconds', '3000')
+    .option('--wechat', 'Enable WeChat channel gateway')
     .action(async (options) => {
         if (!isAuthenticated()) {
             console.log(chalk.yellow('⚠️  Not logged in. Run `openpaean login` first.\n'));
@@ -32,6 +33,7 @@ export const agentCommand = new Command('agent')
             message: options.message,
             gatewayEnabled: options.gateway ?? false,
             gatewayPollInterval: parseInt(options.gatewayInterval, 10) || 3000,
+            wechatEnabled: options.wechat ?? false,
         });
     });
 
@@ -45,6 +47,7 @@ export async function runAgentMode(options: {
     message?: string;
     gatewayEnabled?: boolean;
     gatewayPollInterval?: number;
+    wechatEnabled?: boolean;
 }): Promise<void> {
     if (!isAuthenticated()) {
         console.log(chalk.yellow('⚠️  Not logged in. Run `openpaean login` first.\n'));
@@ -189,12 +192,28 @@ export async function runAgentMode(options: {
         }
     }
 
+    // Initialize WeChat gateway if enabled
+    let wechatService: import('../wechat/service.js').WechatGatewayService | undefined;
+    if (options.wechatEnabled) {
+        const { WechatGatewayService } = await import('../wechat/service.js');
+        wechatService = new WechatGatewayService({ debug });
+        wechatService.setMcpState(mcpState, onMcpToolCall);
+        if (debug) {
+            console.log(chalk.dim('[WeChat] Enabled — polling for WeChat messages'));
+        }
+    }
+
     // Start interactive chat (scrolling mode by default, fullscreen if requested)
     try {
         // Start background services
         if (gatewayService) {
             gatewayService.start().catch((err) => {
                 console.log(chalk.yellow(`Gateway failed to start: ${err instanceof Error ? err.message : err}`));
+            });
+        }
+        if (wechatService) {
+            wechatService.start().catch((err) => {
+                console.log(chalk.yellow(`WeChat channel failed to start: ${err instanceof Error ? err.message : err}`));
             });
         }
         if (enableFullscreen) {
@@ -211,7 +230,9 @@ export async function runAgentMode(options: {
             });
         }
     } finally {
-        // Cleanup gateway and MCP connections on exit
+        if (wechatService) {
+            await wechatService.stop().catch(() => {});
+        }
         if (gatewayService) {
             await gatewayService.stop().catch(() => {});
         }

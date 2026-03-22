@@ -17,6 +17,7 @@ import { validateCommand } from './commands/validate.js';
 import { agentCommand, runAgentMode } from './commands/agent.js';
 import { updateCommand } from './commands/update.js';
 import { gatewayCommand } from './commands/gateway.js';
+import { wechatCommand } from './commands/wechat.js';
 import { creditsCommand } from './commands/credits.js';
 import { getConfigPath } from './utils/config.js';
 
@@ -38,6 +39,7 @@ program
   .option('-m, --message <message>', 'Send a single message to agent')
   .option('--gateway', 'Enable gateway relay for remote clients')
   .option('--gateway-interval <ms>', 'Gateway poll interval in milliseconds', '3000')
+  .option('--wechat', 'Enable WeChat channel gateway')
   .action(async (options) => {
     if (options.config) {
       console.log(getConfigPath());
@@ -51,6 +53,7 @@ program
       message: options.message,
       gatewayEnabled: options.gateway ?? false,
       gatewayPollInterval: parseInt(options.gatewayInterval, 10) || 3000,
+      wechatEnabled: options.wechat ?? false,
     });
   });
 
@@ -63,6 +66,7 @@ program.addCommand(contextCommand);
 program.addCommand(serveCommand);
 program.addCommand(validateCommand);
 program.addCommand(gatewayCommand);
+program.addCommand(wechatCommand);
 program.addCommand(creditsCommand);
 program.addCommand(updateCommand);
 
