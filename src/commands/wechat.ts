@@ -1,18 +1,40 @@
 /**
  * WeChat Command
  * CLI commands for WeChat channel integration.
+ *
+ * Workflow:
+ *   1. openpaean wechat setup    — Scan QR code to authenticate
+ *   2. openpaean wechat start    — Start agent with WeChat channel active
+ *   3. openpaean wechat status   — Check login status
+ *   4. openpaean wechat logout   — Remove saved credentials
  */
 
 import { Command } from 'commander';
 import chalk from 'chalk';
 
 export const wechatCommand = new Command('wechat')
-    .description('WeChat channel — bridge WeChat messages to local agent');
+    .description('WeChat channel — bridge WeChat messages to local agent')
+    .addHelpText('after', `
+Workflow:
+  $ openpaean wechat setup     Authenticate with WeChat (scan QR code)
+  $ openpaean wechat start     Start the agent with WeChat channel active
+  $ openpaean wechat status    Show current login status
+  $ openpaean wechat logout    Remove saved credentials
+
+The "start" command launches the interactive agent with WeChat message
+bridging enabled. You can also use the --wechat flag directly:
+  $ openpaean --wechat
+`);
 
 wechatCommand
     .command('setup')
     .description('Authenticate with WeChat via QR code')
-    .option('-f, --force', 'Skip confirmation for re-authentication')
+    .option('-f, --force', 'Re-authenticate even if already logged in')
+    .addHelpText('after', `
+After setup completes, start the agent with:
+  $ openpaean wechat start
+  $ openpaean --wechat         (equivalent shorthand)
+`)
     .action(async (opts) => {
         const { fetchQRCode, pollQRStatus, DEFAULT_BASE_URL } = await import('../wechat/api.js');
         const { loadCredentials, saveCredentials } = await import('../wechat/credentials.js');
@@ -54,9 +76,11 @@ wechatCommand
                         savedAt: new Date().toISOString(),
                     };
                     saveCredentials(account);
-                    console.log(chalk.green(`\nWeChat connected!`));
-                    console.log(`  Account: ${account.accountId}`);
-                    console.log(`\nStart with: ${chalk.cyan('openpaean --wechat')}`);
+                    console.log(chalk.green(`\n✓ WeChat connected!`));
+                    console.log(`  Account: ${account.accountId}\n`);
+                    console.log(chalk.bold('Next step — start the agent with WeChat channel:'));
+                    console.log(`  ${chalk.cyan('openpaean wechat start')}`);
+                    console.log(`  ${chalk.cyan('openpaean --wechat')}         ${chalk.dim('(equivalent)')}`);
                     return;
                 }
             }
@@ -67,18 +91,44 @@ wechatCommand
     });
 
 wechatCommand
+    .command('start')
+    .description('Start the agent with WeChat channel active')
+    .option('--no-mcp', 'Disable local MCP server integration')
+    .option('-d, --debug', 'Enable debug logging')
+    .action(async (opts) => {
+        const { loadCredentials } = await import('../wechat/credentials.js');
+        if (!loadCredentials()) {
+            console.log(chalk.yellow('WeChat not set up yet.\n'));
+            console.log(`Run ${chalk.cyan('openpaean wechat setup')} to authenticate first.`);
+            process.exit(1);
+        }
+        const { isAuthenticated } = await import('../utils/config.js');
+        if (!isAuthenticated()) {
+            console.log(chalk.yellow('⚠️  Not logged in. Run `openpaean login` first.\n'));
+            process.exit(1);
+        }
+        const { runAgentMode } = await import('./agent.js');
+        await runAgentMode({
+            mcp: opts.mcp !== false,
+            debug: opts.debug ?? false,
+            wechatEnabled: true,
+        });
+    });
+
+wechatCommand
     .command('status')
     .description('Show WeChat login status')
     .action(async () => {
         const { loadCredentials } = await import('../wechat/credentials.js');
         const account = loadCredentials();
         if (account) {
-            console.log(chalk.green('WeChat: Logged in'));
+            console.log(chalk.green('✓ WeChat: Logged in'));
             console.log(`  Account: ${account.accountId}`);
             console.log(`  User:    ${account.userId ?? 'N/A'}`);
-            console.log(`  Saved:   ${account.savedAt}`);
+            console.log(`  Saved:   ${account.savedAt}\n`);
+            console.log(`Start the agent with: ${chalk.cyan('openpaean wechat start')}`);
         } else {
-            console.log(chalk.gray('WeChat: Not logged in'));
+            console.log(chalk.gray('✗ WeChat: Not logged in'));
             console.log(`  Run ${chalk.cyan('openpaean wechat setup')} to authenticate.`);
         }
     });
@@ -88,7 +138,7 @@ wechatCommand
     .description('Remove WeChat credentials')
     .action(async () => {
         const { removeCredentials, loadCredentials } = await import('../wechat/credentials.js');
-        if (!loadCredentials()) { console.log('No credentials found.'); return; }
+        if (!loadCredentials()) { console.log('No WeChat credentials found.'); return; }
         removeCredentials();
-        console.log(chalk.green('WeChat credentials removed.'));
+        console.log(chalk.green('✓ WeChat credentials removed.'));
     });
