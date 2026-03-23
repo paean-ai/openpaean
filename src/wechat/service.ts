@@ -174,7 +174,12 @@ export class WechatGatewayService extends EventEmitter {
         agentService.streamMessage(text, callbacks, {
             conversationId: this.conversationIdCache.get(senderId),
             mcpState: this.mcpState as McpState | undefined,
-            cliMode: { enabled: true },
+            cliMode: {
+                enabled: true,
+                cwd: process.cwd(),
+                platform: process.platform,
+                channel: 'wechat',
+            },
         });
     }
 

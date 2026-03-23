@@ -3,10 +3,12 @@
  * CLI commands for WeChat channel integration.
  *
  * Workflow:
- *   1. openpaean wechat setup    — Scan QR code to authenticate
- *   2. openpaean wechat start    — Start agent with WeChat channel active
- *   3. openpaean wechat status   — Check login status
- *   4. openpaean wechat logout   — Remove saved credentials
+ *   1. openpaean wechat setup        — Scan QR code to authenticate
+ *   2. openpaean wechat start        — Start agent with WeChat channel active
+ *   3. openpaean wechat status       — Check login status
+ *   4. openpaean wechat send-message — Proactively send a message
+ *   5. openpaean wechat contacts     — List known contacts
+ *   6. openpaean wechat logout       — Remove saved credentials
  */
 
 import { Command } from 'commander';
@@ -16,10 +18,12 @@ export const wechatCommand = new Command('wechat')
     .description('WeChat channel — bridge WeChat messages to local agent')
     .addHelpText('after', `
 Workflow:
-  $ openpaean wechat setup     Authenticate with WeChat (scan QR code)
-  $ openpaean wechat start     Start the agent with WeChat channel active
-  $ openpaean wechat status    Show current login status
-  $ openpaean wechat logout    Remove saved credentials
+  $ openpaean wechat setup          Authenticate with WeChat (scan QR code)
+  $ openpaean wechat start          Start the agent with WeChat channel active
+  $ openpaean wechat status         Show current login status
+  $ openpaean wechat send-message   Send a message proactively to a contact
+  $ openpaean wechat contacts       List known WeChat contacts
+  $ openpaean wechat logout         Remove saved credentials
 
 The "start" command launches the interactive agent with WeChat message
 bridging enabled. You can also use the --wechat flag directly:
@@ -130,6 +134,68 @@ wechatCommand
         } else {
             console.log(chalk.gray('✗ WeChat: Not logged in'));
             console.log(`  Run ${chalk.cyan('openpaean wechat setup')} to authenticate.`);
+        }
+    });
+
+wechatCommand
+    .command('send-message')
+    .description('Proactively send a message to a WeChat user')
+    .requiredOption('--to <userId>', 'Target user ID or display name (from contacts)')
+    .requiredOption('--text <message>', 'Message text to send')
+    .addHelpText('after', `
+Send a message to a WeChat contact without waiting for incoming messages.
+The target user must have previously messaged the bot (so a context token exists).
+
+  $ openpaean wechat send-message --to "friend_name" --text "Task completed!"
+
+Use 'openpaean wechat contacts' to see known contacts.
+`)
+    .action(async (opts) => {
+        const { loadCredentials, getContactToken } = await import('../wechat/credentials.js');
+        const { sendTextMessage } = await import('../wechat/api.js');
+
+        const account = loadCredentials();
+        if (!account) {
+            console.error(chalk.red('No WeChat credentials. Run `openpaean wechat setup` first.'));
+            process.exit(1);
+        }
+
+        const contextToken = getContactToken(opts.to);
+        if (!contextToken) {
+            console.error(chalk.red(`No context token found for "${opts.to}".`));
+            console.error('The user must have sent a message to the bot first.');
+            console.error(`Run ${chalk.cyan('openpaean wechat contacts')} to see known contacts.`);
+            process.exit(1);
+        }
+
+        const text = String(opts.text);
+        const maxLen = 2048;
+        try {
+            for (let i = 0; i < text.length; i += maxLen) {
+                await sendTextMessage(account.baseUrl, account.token, opts.to, text.slice(i, i + maxLen), contextToken);
+            }
+            console.log(chalk.green(`✓ Message sent to ${opts.to}`));
+        } catch (e) {
+            console.error(chalk.red(`Failed to send message: ${e instanceof Error ? e.message : e}`));
+            process.exit(1);
+        }
+    });
+
+wechatCommand
+    .command('contacts')
+    .description('List known WeChat contacts (users who have messaged the bot)')
+    .action(async () => {
+        const { loadContacts } = await import('../wechat/credentials.js');
+        const contacts = loadContacts();
+        if (contacts.length === 0) {
+            console.log(chalk.gray('No contacts yet. Start the WeChat channel and receive messages first.'));
+            return;
+        }
+        console.log(chalk.bold(`Known WeChat contacts (${contacts.length}):\n`));
+        for (const c of contacts) {
+            console.log(`  ${chalk.cyan(c.displayName ?? c.userId)}`);
+            console.log(`    User ID:   ${c.userId}`);
+            console.log(`    Last seen: ${c.lastSeen}\n`);
         }
     });
 

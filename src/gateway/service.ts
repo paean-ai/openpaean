@@ -398,7 +398,12 @@ export class GatewayService extends EventEmitter {
             agentService.streamMessage(request.message, callbacks, {
                 conversationId: request.conversationHashKey,
                 mcpState: this.mcpState as McpState | undefined,
-                cliMode: { enabled: true },
+                cliMode: {
+                    enabled: true,
+                    cwd: process.cwd(),
+                    platform: process.platform,
+                    channel: 'gateway',
+                },
             });
         });
     }

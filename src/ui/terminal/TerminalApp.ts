@@ -246,7 +246,7 @@ ${info('Terminal:')}
                 {
                     conversationId: this.currentConversationId || undefined,
                     mcpState: this.options.mcpState,
-                    cliMode: this.statusState.isRawMode ? { enabled: true, streamRaw: true } : undefined,
+                    cliMode: this.statusState.isRawMode ? { enabled: true, streamRaw: true, cwd: process.cwd(), platform: process.platform, channel: 'cli' } : undefined,
                 }
             );
 

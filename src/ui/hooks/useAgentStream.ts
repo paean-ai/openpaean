@@ -156,7 +156,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
             const { abort: abortFn } = await agentService.streamMessage(message, callbacks, {
                 conversationId: conversationIdRef.current,
                 mcpState,
-                cliMode: cliMode ? { enabled: true } : undefined,
+                cliMode: cliMode ? { enabled: true, cwd: process.cwd(), platform: process.platform, channel: 'cli' } : undefined,
             });
             abortRef.current = abortFn;
         } catch (error) {
