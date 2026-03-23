@@ -402,6 +402,7 @@ export class GatewayService extends EventEmitter {
                     enabled: true,
                     cwd: process.cwd(),
                     platform: process.platform,
+                    hostname: os.hostname(),
                     channel: 'gateway',
                 },
             });

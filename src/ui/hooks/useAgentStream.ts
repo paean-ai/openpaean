@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import os from 'os';
 import { agentService } from '../../agent/service.js';
 import type { McpState, McpToolResult, AgentStreamCallbacks } from '../../agent/types.js';
 import { onCronPrompt, setAgentBusyChecker } from '../../mcp/cron.js';
@@ -156,7 +157,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
             const { abort: abortFn } = await agentService.streamMessage(message, callbacks, {
                 conversationId: conversationIdRef.current,
                 mcpState,
-                cliMode: cliMode ? { enabled: true, cwd: process.cwd(), platform: process.platform, channel: 'cli' } : undefined,
+                cliMode: cliMode ? { enabled: true, cwd: process.cwd(), platform: process.platform, hostname: os.hostname(), channel: 'cli' } : undefined,
             });
             abortRef.current = abortFn;
         } catch (error) {

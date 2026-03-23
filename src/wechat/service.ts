@@ -6,6 +6,7 @@
  */
 
 import { EventEmitter } from 'events';
+import os from 'os';
 import { agentService } from '../agent/service.js';
 import type { AgentStreamCallbacks, McpState, McpToolResult } from '../agent/types.js';
 import { executeSystemTool } from '../mcp/system.js';
@@ -14,7 +15,7 @@ import {
     MSG_TYPE_USER,
     type AccountData,
 } from './api.js';
-import { loadCredentials, loadSyncBuf, saveSyncBuf } from './credentials.js';
+import { loadCredentials, loadSyncBuf, saveSyncBuf, saveContact } from './credentials.js';
 
 export interface WechatGatewayConfig {
     debug?: boolean;
@@ -96,7 +97,10 @@ export class WechatGatewayService extends EventEmitter {
                     const text = extractText(msg);
                     if (!text) continue;
                     const senderId = msg.from_user_id ?? 'unknown';
-                    if (msg.context_token) this.contextTokenCache.set(senderId, msg.context_token);
+                    if (msg.context_token) {
+                        this.contextTokenCache.set(senderId, msg.context_token);
+                        saveContact(senderId, msg.context_token);
+                    }
                     this.emit('event', { type: 'message_received', sender: senderId, text } as WechatGatewayEvent);
                     await this.processMessage(senderId, text);
                 }
@@ -178,6 +182,7 @@ export class WechatGatewayService extends EventEmitter {
                 enabled: true,
                 cwd: process.cwd(),
                 platform: process.platform,
+                hostname: os.hostname(),
                 channel: 'wechat',
             },
         });

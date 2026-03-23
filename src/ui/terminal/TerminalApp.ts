@@ -4,6 +4,7 @@
  */
 
 import readline from 'readline';
+import os from 'os';
 import { stdin, stdout } from 'process';
 import type { ReadLine } from 'readline';
 import { AgentService } from '../../agent/service.js';
@@ -246,7 +247,7 @@ ${info('Terminal:')}
                 {
                     conversationId: this.currentConversationId || undefined,
                     mcpState: this.options.mcpState,
-                    cliMode: this.statusState.isRawMode ? { enabled: true, streamRaw: true, cwd: process.cwd(), platform: process.platform, channel: 'cli' } : undefined,
+                    cliMode: this.statusState.isRawMode ? { enabled: true, streamRaw: true, cwd: process.cwd(), platform: process.platform, hostname: os.hostname(), channel: 'cli' } : undefined,
                 }
             );
 
