@@ -1,8 +1,8 @@
 /**
- * Session-Scoped Cron Scheduler (Open Source)
+ * Session-Scoped Loop Scheduler (Open Source)
  * 
  * Pushes natural-language prompts into the main agent interaction on a
- * schedule, as if the user had typed them.  This gives cron jobs full
+ * schedule, as if the user had typed them.  This gives loop jobs full
  * agent capabilities (tool use, reasoning, multi-step tasks) instead of
  * being limited to simple shell commands.
  * 
@@ -27,7 +27,7 @@ import { EventEmitter } from 'events';
 // Types
 // ============================================
 
-export interface CronJob {
+export interface LoopJob {
   id: string;
   schedule: string;
   /** Natural-language prompt injected into the agent conversation */
@@ -42,7 +42,7 @@ export interface CronJob {
   status: 'active' | 'paused';
 }
 
-interface InternalCronJob extends CronJob {
+interface InternalLoopJob extends LoopJob {
   timerId: ReturnType<typeof setTimeout> | ReturnType<typeof setInterval> | null;
   intervalMs: number | null;
   cronFields: CronFields | null;
@@ -60,32 +60,32 @@ interface CronFields {
 // Prompt Injection Event Bus
 // ============================================
 
-export interface CronPromptEvent {
+export interface LoopPromptEvent {
   jobId: string;
   prompt: string;
   cwd?: string;
   schedule: string;
 }
 
-const cronEmitter = new EventEmitter();
+const loopEmitter = new EventEmitter();
 
 /**
- * Register a callback that fires whenever a cron job wants to inject a
+ * Register a callback that fires whenever a loop job wants to inject a
  * prompt into the main agent conversation.
  * Returns an unsubscribe function.
  */
-export function onCronPrompt(
-  callback: (event: CronPromptEvent) => void,
+export function onLoopPrompt(
+  callback: (event: LoopPromptEvent) => void,
 ): () => void {
-  cronEmitter.on('cron-prompt', callback);
+  loopEmitter.on('loop-prompt', callback);
   return () => {
-    cronEmitter.off('cron-prompt', callback);
+    loopEmitter.off('loop-prompt', callback);
   };
 }
 
 /**
  * Callback that returns `true` when the agent is currently processing a
- * message and should not be interrupted by cron prompts.
+ * message and should not be interrupted by loop prompts.
  */
 let agentBusyChecker: (() => boolean) | null = null;
 
@@ -101,7 +101,7 @@ export function setAgentBusyChecker(checker: () => boolean): void {
 // In-Memory Registry (session-scoped)
 // ============================================
 
-const cronJobs = new Map<string, InternalCronJob>();
+const loopJobs = new Map<string, InternalLoopJob>();
 
 let cleanupRegistered = false;
 
@@ -110,13 +110,13 @@ function ensureCleanupRegistered(): void {
   cleanupRegistered = true;
 
   const cleanup = () => {
-    for (const job of cronJobs.values()) {
+    for (const job of loopJobs.values()) {
       if (job.timerId !== null) {
         clearTimeout(job.timerId as ReturnType<typeof setTimeout>);
         clearInterval(job.timerId as ReturnType<typeof setInterval>);
       }
     }
-    cronJobs.clear();
+    loopJobs.clear();
   };
 
   process.on('exit', cleanup);
@@ -243,7 +243,7 @@ function getNextCronTime(fields: CronFields, after: Date): Date {
 // Job Execution — Prompt Injection
 // ============================================
 
-async function executeJob(job: InternalCronJob): Promise<void> {
+async function executeJob(job: InternalLoopJob): Promise<void> {
   if (agentBusyChecker && agentBusyChecker()) {
     job.skipCount++;
     job.lastResult = {
@@ -259,12 +259,12 @@ async function executeJob(job: InternalCronJob): Promise<void> {
   job.lastRunAt = new Date().toISOString();
   job.runCount++;
 
-  cronEmitter.emit('cron-prompt', {
+  loopEmitter.emit('loop-prompt', {
     jobId: job.id,
     prompt: job.prompt,
     cwd: job.cwd,
     schedule: job.schedule,
-  } satisfies CronPromptEvent);
+  } satisfies LoopPromptEvent);
 
   job.lastResult = {
     success: true,
@@ -276,7 +276,7 @@ async function executeJob(job: InternalCronJob): Promise<void> {
   }
 }
 
-function scheduleNextCronRun(job: InternalCronJob): void {
+function scheduleNextCronRun(job: InternalLoopJob): void {
   if (!job.cronFields) return;
 
   const nextTime = getNextCronTime(job.cronFields, new Date());
@@ -293,7 +293,7 @@ function scheduleNextCronRun(job: InternalCronJob): void {
   }, Math.max(delay, 1000));
 }
 
-function startJob(job: InternalCronJob): void {
+function startJob(job: InternalLoopJob): void {
   if (job.intervalMs !== null) {
     job.nextRunAt = new Date(Date.now() + job.intervalMs).toISOString();
     job.timerId = setInterval(() => {
@@ -307,7 +307,7 @@ function startJob(job: InternalCronJob): void {
   }
 }
 
-function stopJob(job: InternalCronJob): void {
+function stopJob(job: InternalLoopJob): void {
   if (job.timerId !== null) {
     clearTimeout(job.timerId as ReturnType<typeof setTimeout>);
     clearInterval(job.timerId as ReturnType<typeof setInterval>);
@@ -316,7 +316,7 @@ function stopJob(job: InternalCronJob): void {
   job.nextRunAt = null;
 }
 
-function toPublicJob(job: InternalCronJob): CronJob {
+function toPublicJob(job: InternalLoopJob): LoopJob {
   return {
     id: job.id,
     schedule: job.schedule,
@@ -336,12 +336,12 @@ function toPublicJob(job: InternalCronJob): CronJob {
 // MCP Tool Definitions
 // ============================================
 
-export function getCronToolDefinitions(): Tool[] {
+export function getLoopToolDefinitions(): Tool[] {
   return [
     {
-      name: 'paean_cron_create',
+      name: 'paean_loop_create',
       description:
-        'Create a session-scoped scheduled task. ' +
+        'Create a session-scoped loop task. ' +
         'The prompt is injected into the main agent conversation on each trigger, ' +
         'giving the task full agent capabilities (tool use, reasoning, multi-step work). ' +
         'If the agent is busy when a job fires, execution is skipped. ' +
@@ -373,9 +373,9 @@ export function getCronToolDefinitions(): Tool[] {
       },
     },
     {
-      name: 'paean_cron_list',
+      name: 'paean_loop_list',
       description:
-        'List all session-scoped cron jobs. Shows schedule, prompt, status, run count, ' +
+        'List all session-scoped loop jobs. Shows schedule, prompt, status, run count, ' +
         'skip count, last/next run time, and last result for each job.',
       inputSchema: {
         type: 'object',
@@ -383,58 +383,58 @@ export function getCronToolDefinitions(): Tool[] {
       },
     },
     {
-      name: 'paean_cron_remove',
+      name: 'paean_loop_remove',
       description:
-        'Remove a session-scoped cron job by ID. The job is stopped and deleted immediately.',
+        'Remove a session-scoped loop job by ID. The job is stopped and deleted immediately.',
       inputSchema: {
         type: 'object',
         properties: {
           jobId: {
             type: 'string',
-            description: 'The ID of the cron job to remove',
+            description: 'The ID of the loop job to remove',
           },
         },
         required: ['jobId'],
       },
     },
     {
-      name: 'paean_cron_get',
+      name: 'paean_loop_get',
       description:
-        'Get detailed status of a specific cron job by ID.',
+        'Get detailed status of a specific loop job by ID.',
       inputSchema: {
         type: 'object',
         properties: {
           jobId: {
             type: 'string',
-            description: 'The ID of the cron job',
+            description: 'The ID of the loop job',
           },
         },
         required: ['jobId'],
       },
     },
     {
-      name: 'paean_cron_pause',
-      description: 'Pause an active cron job. The job remains registered but stops firing prompts.',
+      name: 'paean_loop_pause',
+      description: 'Pause an active loop job. The job remains registered but stops firing prompts.',
       inputSchema: {
         type: 'object',
         properties: {
           jobId: {
             type: 'string',
-            description: 'The ID of the cron job to pause',
+            description: 'The ID of the loop job to pause',
           },
         },
         required: ['jobId'],
       },
     },
     {
-      name: 'paean_cron_resume',
-      description: 'Resume a paused cron job.',
+      name: 'paean_loop_resume',
+      description: 'Resume a paused loop job.',
       inputSchema: {
         type: 'object',
         properties: {
           jobId: {
             type: 'string',
-            description: 'The ID of the cron job to resume',
+            description: 'The ID of the loop job to resume',
           },
         },
         required: ['jobId'],
@@ -443,27 +443,27 @@ export function getCronToolDefinitions(): Tool[] {
   ];
 }
 
-export const CRON_TOOL_NAMES = new Set([
-  'paean_cron_create',
-  'paean_cron_list',
-  'paean_cron_remove',
-  'paean_cron_get',
-  'paean_cron_pause',
-  'paean_cron_resume',
+export const LOOP_TOOL_NAMES = new Set([
+  'paean_loop_create',
+  'paean_loop_list',
+  'paean_loop_remove',
+  'paean_loop_get',
+  'paean_loop_pause',
+  'paean_loop_resume',
 ]);
 
 // ============================================
 // MCP Tool Execution
 // ============================================
 
-export async function executeCronTool(
+export async function executeLoopTool(
   toolName: string,
   args: Record<string, unknown>,
 ): Promise<unknown> {
   ensureCleanupRegistered();
 
   switch (toolName) {
-    case 'paean_cron_create': {
+    case 'paean_loop_create': {
       const schedule = args.schedule as string;
       const prompt = args.prompt as string;
       const cwd = args.cwd as string | undefined;
@@ -472,10 +472,10 @@ export async function executeCronTool(
         return { success: false, error: 'schedule and prompt are required' };
       }
 
-      if (cronJobs.size >= 20) {
+      if (loopJobs.size >= 20) {
         return {
           success: false,
-          error: 'Maximum 20 concurrent cron jobs per session. Remove some before adding new ones.',
+          error: 'Maximum 20 concurrent loop jobs per session. Remove some before adding new ones.',
         };
       }
 
@@ -490,7 +490,7 @@ export async function executeCronTool(
       }
 
       const id = generateId();
-      const job: InternalCronJob = {
+      const job: InternalLoopJob = {
         id,
         schedule,
         prompt,
@@ -507,22 +507,22 @@ export async function executeCronTool(
         cronFields: parsed.cronFields,
       };
 
-      cronJobs.set(id, job);
+      loopJobs.set(id, job);
       startJob(job);
 
       return {
         success: true,
-        message: `Cron job created: ${schedule}`,
+        message: `Loop job created: ${schedule}`,
         job: toPublicJob(job),
         note: 'This job will inject the prompt into the main agent conversation on each trigger. ' +
               'If the agent is busy, the execution will be skipped. ' +
               'The job is session-scoped and will be removed when the CLI session ends. ' +
-              'Use `paean_cron_get` or `paean_cron_list` tools to check job status — there is no HTTP API.',
+              'Use `paean_loop_get` or `paean_loop_list` tools to check job status.',
       };
     }
 
-    case 'paean_cron_list': {
-      const jobs = Array.from(cronJobs.values()).map(toPublicJob);
+    case 'paean_loop_list': {
+      const jobs = Array.from(loopJobs.values()).map(toPublicJob);
       return {
         success: true,
         jobs,
@@ -531,36 +531,36 @@ export async function executeCronTool(
       };
     }
 
-    case 'paean_cron_remove': {
+    case 'paean_loop_remove': {
       const jobId = args.jobId as string;
       if (!jobId) {
         return { success: false, error: 'jobId is required' };
       }
 
-      const job = cronJobs.get(jobId);
+      const job = loopJobs.get(jobId);
       if (!job) {
-        return { success: false, error: `Cron job not found: ${jobId}` };
+        return { success: false, error: `Loop job not found: ${jobId}` };
       }
 
       stopJob(job);
-      cronJobs.delete(jobId);
+      loopJobs.delete(jobId);
 
       return {
         success: true,
-        message: `Cron job ${jobId} removed`,
+        message: `Loop job ${jobId} removed`,
         removedJob: toPublicJob(job),
       };
     }
 
-    case 'paean_cron_get': {
+    case 'paean_loop_get': {
       const jobId = args.jobId as string;
       if (!jobId) {
         return { success: false, error: 'jobId is required' };
       }
 
-      const job = cronJobs.get(jobId);
+      const job = loopJobs.get(jobId);
       if (!job) {
-        return { success: false, error: `Cron job not found: ${jobId}` };
+        return { success: false, error: `Loop job not found: ${jobId}` };
       }
 
       return {
@@ -569,19 +569,19 @@ export async function executeCronTool(
       };
     }
 
-    case 'paean_cron_pause': {
+    case 'paean_loop_pause': {
       const jobId = args.jobId as string;
       if (!jobId) {
         return { success: false, error: 'jobId is required' };
       }
 
-      const job = cronJobs.get(jobId);
+      const job = loopJobs.get(jobId);
       if (!job) {
-        return { success: false, error: `Cron job not found: ${jobId}` };
+        return { success: false, error: `Loop job not found: ${jobId}` };
       }
 
       if (job.status === 'paused') {
-        return { success: false, error: `Cron job ${jobId} is already paused` };
+        return { success: false, error: `Loop job ${jobId} is already paused` };
       }
 
       stopJob(job);
@@ -589,24 +589,24 @@ export async function executeCronTool(
 
       return {
         success: true,
-        message: `Cron job ${jobId} paused`,
+        message: `Loop job ${jobId} paused`,
         job: toPublicJob(job),
       };
     }
 
-    case 'paean_cron_resume': {
+    case 'paean_loop_resume': {
       const jobId = args.jobId as string;
       if (!jobId) {
         return { success: false, error: 'jobId is required' };
       }
 
-      const job = cronJobs.get(jobId);
+      const job = loopJobs.get(jobId);
       if (!job) {
-        return { success: false, error: `Cron job not found: ${jobId}` };
+        return { success: false, error: `Loop job not found: ${jobId}` };
       }
 
       if (job.status === 'active') {
-        return { success: false, error: `Cron job ${jobId} is already active` };
+        return { success: false, error: `Loop job ${jobId} is already active` };
       }
 
       job.status = 'active';
@@ -614,29 +614,47 @@ export async function executeCronTool(
 
       return {
         success: true,
-        message: `Cron job ${jobId} resumed`,
+        message: `Loop job ${jobId} resumed`,
         job: toPublicJob(job),
       };
     }
 
     default:
-      return { success: false, error: `Unknown cron tool: ${toolName}` };
+      return { success: false, error: `Unknown loop tool: ${toolName}` };
   }
 }
 
 /**
- * Get all active cron jobs count (for status display)
+ * Get all active loop jobs count (for status display)
  */
-export function getActiveCronCount(): number {
-  return Array.from(cronJobs.values()).filter(j => j.status === 'active').length;
+export function getActiveLoopCount(): number {
+  return Array.from(loopJobs.values()).filter(j => j.status === 'active').length;
 }
 
 /**
- * Remove all cron jobs (for testing or session cleanup)
+ * Remove all loop jobs (for testing or session cleanup)
  */
-export function clearAllCronJobs(): void {
-  for (const job of cronJobs.values()) {
+export function clearAllLoopJobs(): void {
+  for (const job of loopJobs.values()) {
     stopJob(job);
   }
-  cronJobs.clear();
+  loopJobs.clear();
 }
+
+// Legacy aliases for backward compatibility
+/** @deprecated Use LoopJob instead */
+export type CronJob = LoopJob;
+/** @deprecated Use LoopPromptEvent instead */
+export type CronPromptEvent = LoopPromptEvent;
+/** @deprecated Use getLoopToolDefinitions instead */
+export const getCronToolDefinitions = getLoopToolDefinitions;
+/** @deprecated Use executeLoopTool instead */
+export const executeCronTool = executeLoopTool;
+/** @deprecated Use LOOP_TOOL_NAMES instead */
+export const CRON_TOOL_NAMES = LOOP_TOOL_NAMES;
+/** @deprecated Use onLoopPrompt instead */
+export const onCronPrompt = onLoopPrompt;
+/** @deprecated Use getActiveLoopCount instead */
+export const getActiveCronCount = getActiveLoopCount;
+/** @deprecated Use clearAllLoopJobs instead */
+export const clearAllCronJobs = clearAllLoopJobs;

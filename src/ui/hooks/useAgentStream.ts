@@ -7,7 +7,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import os from 'os';
 import { agentService } from '../../agent/service.js';
 import type { McpState, McpToolResult, AgentStreamCallbacks } from '../../agent/types.js';
-import { onCronPrompt, setAgentBusyChecker } from '../../mcp/cron.js';
+import { onLoopPrompt, setAgentBusyChecker } from '../../mcp/loop.js';
 
 export interface Message {
     id: string;
@@ -175,11 +175,11 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
         setAgentBusyChecker(() => isProcessingRef.current);
     }, []);
 
-    // Subscribe to cron prompt events and auto-send when idle
+    // Subscribe to loop prompt events and auto-send when idle
     useEffect(() => {
-        const unsubscribe = onCronPrompt((event) => {
+        const unsubscribe = onLoopPrompt((event) => {
             if (!isProcessingRef.current) {
-                sendMessage(`[Scheduled Task: ${event.schedule}] ${event.prompt}`);
+                sendMessage(`[Loop: ${event.schedule}] ${event.prompt}`);
             }
         });
         return unsubscribe;

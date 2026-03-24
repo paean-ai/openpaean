@@ -99,18 +99,27 @@ export {
   getCommandWhitelist,
 } from './mcp/system.js';
 
-// Cron/Scheduler Tools (session-scoped, prompt-injection based)
+// Loop Tools (session-scoped, prompt-injection based recurring tasks)
 export {
+  getLoopToolDefinitions,
+  executeLoopTool,
+  LOOP_TOOL_NAMES,
+  getActiveLoopCount,
+  clearAllLoopJobs,
+  onLoopPrompt,
+  setAgentBusyChecker,
+  type LoopJob,
+  type LoopPromptEvent,
+  // Legacy aliases
   getCronToolDefinitions,
   executeCronTool,
   CRON_TOOL_NAMES,
   getActiveCronCount,
   clearAllCronJobs,
   onCronPrompt,
-  setAgentBusyChecker,
   type CronJob,
   type CronPromptEvent,
-} from './mcp/cron.js';
+} from './mcp/loop.js';
 
 // CLI Agent Tools (invoke external coding CLIs)
 export {

@@ -257,7 +257,7 @@ export function getSystemTools(): Tool[] {
             name: 'paean_wechat_send',
             description:
                 'Send a proactive message to a WeChat contact. ' +
-                'Use this to push important notifications (cron job results, task summaries, alerts) ' +
+                'Use this to push important notifications (loop task results, task summaries, alerts) ' +
                 'to a WeChat user who has previously messaged the bot. ' +
                 'If no "to" is specified, sends to the most recently active contact. ' +
                 'The context_token is valid for 24 hours after the user\'s last message.',
