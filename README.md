@@ -66,6 +66,11 @@ openpaean --no-fullscreen
 
 # Send a single message
 openpaean -m "What can you help me with?"
+
+# Select model tier
+openpaean --tier lite     # Paean Lite (fastest, lowest cost)
+openpaean --tier flash    # Paean Flash (default, balanced)
+openpaean --tier pro      # Paean Pro (most capable)
 ```
 
 ### 3. Configure Local MCP Servers
@@ -86,13 +91,14 @@ Create `~/.openpaean/mcp_config.json`:
 ## Options
 
 ```bash
-openpaean                    # Start fullscreen TUI mode
-openpaean --no-fullscreen   # Disable fullscreen mode
-openpaean --no-mcp          # Disable local MCP integration
-openpaean -d, --debug       # Enable debug logging
-openpaean -m "message"      # Send a single message
-openpaean update             # Update to the latest version
-openpaean update --check     # Check for updates without installing
+openpaean                       # Start fullscreen TUI mode
+openpaean --no-fullscreen      # Disable fullscreen mode
+openpaean --no-mcp             # Disable local MCP integration
+openpaean -d, --debug          # Enable debug logging
+openpaean -m "message"         # Send a single message
+openpaean -t, --tier <tier>    # Model tier: lite, flash (default), pro
+openpaean update                # Update to the latest version
+openpaean update --check        # Check for updates without installing
 ```
 
 ## Configuration

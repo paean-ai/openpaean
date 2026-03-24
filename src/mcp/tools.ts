@@ -41,6 +41,8 @@ const SYSTEM_TOOL_NAMES = new Set([
   'paean_write_file',
   'paean_read_file',
   'paean_list_directory',
+  'paean_wechat_send',
+  'paean_wechat_contacts',
 ]);
 
 // ============================================

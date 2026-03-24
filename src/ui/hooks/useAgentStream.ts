@@ -32,6 +32,7 @@ export interface UseAgentStreamOptions {
         args: Record<string, unknown>
     ) => Promise<McpToolResult>;
     cliMode?: boolean;
+    modelTier?: 'lite' | 'flash' | 'pro';
 }
 
 export interface UseAgentStreamReturn {
@@ -44,7 +45,7 @@ export interface UseAgentStreamReturn {
 }
 
 export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStreamReturn {
-    const { mcpState, onMcpToolCall, cliMode = false } = options;
+    const { mcpState, onMcpToolCall, cliMode = false, modelTier } = options;
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -158,6 +159,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
                 conversationId: conversationIdRef.current,
                 mcpState,
                 cliMode: cliMode ? { enabled: true, cwd: process.cwd(), platform: process.platform, hostname: os.hostname(), channel: 'cli' } : undefined,
+                modelTier,
             });
             abortRef.current = abortFn;
         } catch (error) {

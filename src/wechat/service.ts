@@ -141,7 +141,7 @@ export class WechatGatewayService extends EventEmitter {
                     } catch (e) {
                         mcpResult = { content: [{ type: 'text', text: `Error: ${e instanceof Error ? e.message : e}` }], isError: true };
                     }
-                } else if (toolName.startsWith('paean_execute') || toolName.startsWith('paean_check') || toolName.startsWith('paean_kill')) {
+                } else if (toolName.startsWith('paean_')) {
                     const result = await executeSystemTool(toolName, args, { autonomousMode: true }) as { success: boolean; [k: string]: unknown };
                     mcpResult = { content: [{ type: 'text', text: JSON.stringify(result) }], isError: !result.success };
                 } else {

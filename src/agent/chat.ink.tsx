@@ -22,6 +22,7 @@ export interface ChatOptions {
     ) => Promise<McpToolResult>;
     debug?: boolean;
     wechatService?: import('../wechat/service.js').WechatGatewayService;
+    modelTier?: 'lite' | 'flash' | 'pro';
 }
 
 /**
@@ -98,6 +99,7 @@ export async function startScrollingChat(options: ChatOptions = {}): Promise<voi
         onMcpToolCall: options.onMcpToolCall,
         debug: options.debug,
         wechatService: options.wechatService,
+        modelTier: options.modelTier,
     });
     await app.start();
 }

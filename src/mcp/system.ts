@@ -253,6 +253,40 @@ export function getSystemTools(): Tool[] {
                 },
             },
         },
+        {
+            name: 'paean_wechat_send',
+            description:
+                'Send a proactive message to a WeChat contact. ' +
+                'Use this to push important notifications (cron job results, task summaries, alerts) ' +
+                'to a WeChat user who has previously messaged the bot. ' +
+                'If no "to" is specified, sends to the most recently active contact. ' +
+                'The context_token is valid for 24 hours after the user\'s last message.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    text: {
+                        type: 'string',
+                        description: 'The plain-text message to send (no markdown). Keep it concise for WeChat.',
+                    },
+                    to: {
+                        type: 'string',
+                        description: 'Target user ID or display name. Omit to send to the most recent contact.',
+                    },
+                },
+                required: ['text'],
+            },
+        },
+        {
+            name: 'paean_wechat_contacts',
+            description:
+                'List known WeChat contacts who have previously messaged the bot. ' +
+                'Returns user IDs, display names, and last-seen timestamps. ' +
+                'Use this to check who is available before sending a message with paean_wechat_send.',
+            inputSchema: {
+                type: 'object',
+                properties: {},
+            },
+        },
     ];
 }
 
@@ -281,6 +315,10 @@ export async function executeSystemTool(
             return readLocalFile(args);
         case 'paean_list_directory':
             return listDirectory(args);
+        case 'paean_wechat_send':
+            return wechatSend(args);
+        case 'paean_wechat_contacts':
+            return wechatListContacts();
         default:
             return {
                 success: false,
@@ -811,4 +849,86 @@ function globToRegex(pattern: string): RegExp {
         .replace(/\*/g, '.*')
         .replace(/\?/g, '.');
     return new RegExp(`^${escaped}$`, 'i');
+}
+
+async function wechatSend(args: Record<string, unknown>): Promise<unknown> {
+    const text = args.text as string;
+    if (!text) return { success: false, error: 'text is required' };
+
+    try {
+        const { loadCredentials, loadContacts, getContactToken } = await import('../wechat/credentials.js');
+        const { sendTextMessage } = await import('../wechat/api.js');
+
+        const account = loadCredentials();
+        if (!account) {
+            return { success: false, error: 'No WeChat credentials. Run `openpaean wechat setup` first.' };
+        }
+
+        const contacts = loadContacts();
+        if (contacts.length === 0) {
+            return { success: false, error: 'No known WeChat contacts. A user must message the bot first.' };
+        }
+
+        let targetUserId: string;
+        let contextToken: string | null;
+
+        const to = args.to as string | undefined;
+        if (to) {
+            contextToken = getContactToken(to);
+            if (!contextToken) {
+                return {
+                    success: false,
+                    error: `No context token for "${to}". Available contacts: ${contacts.map(c => c.displayName || c.userId).join(', ')}`,
+                };
+            }
+            const match = contacts.find(c => c.userId === to || c.displayName === to);
+            targetUserId = match?.userId ?? to;
+        } else {
+            const sorted = [...contacts].sort((a, b) =>
+                new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime()
+            );
+            const recent = sorted[0];
+            targetUserId = recent.userId;
+            contextToken = recent.contextToken;
+        }
+
+        const maxLen = 2048;
+        let sent = 0;
+        for (let i = 0; i < text.length; i += maxLen) {
+            await sendTextMessage(account.baseUrl, account.token, targetUserId, text.slice(i, i + maxLen), contextToken);
+            sent++;
+        }
+
+        const displayName = contacts.find(c => c.userId === targetUserId)?.displayName ?? targetUserId;
+        return {
+            success: true,
+            message: `Sent ${sent} message(s) to ${displayName}`,
+            to: displayName,
+            userId: targetUserId,
+        };
+    } catch (e) {
+        return { success: false, error: `WeChat send failed: ${e instanceof Error ? e.message : String(e)}` };
+    }
+}
+
+async function wechatListContacts(): Promise<unknown> {
+    try {
+        const { loadContacts, loadCredentials } = await import('../wechat/credentials.js');
+        const account = loadCredentials();
+        const contacts = loadContacts();
+
+        return {
+            success: true,
+            authenticated: !!account,
+            accountId: account?.accountId ?? null,
+            contacts: contacts.map(c => ({
+                userId: c.userId,
+                displayName: c.displayName ?? c.userId.split('@')[0],
+                lastSeen: c.lastSeen,
+            })),
+            count: contacts.length,
+        };
+    } catch (e) {
+        return { success: false, error: `Failed to load contacts: ${e instanceof Error ? e.message : String(e)}` };
+    }
 }

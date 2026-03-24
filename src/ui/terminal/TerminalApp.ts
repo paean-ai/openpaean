@@ -88,6 +88,7 @@ export interface TerminalAppOptions {
     ) => Promise<McpToolResult>;
     debug?: boolean;
     wechatService?: import('../../wechat/service.js').WechatGatewayService;
+    modelTier?: 'lite' | 'flash' | 'pro';
 }
 
 /**
@@ -248,6 +249,7 @@ ${info('Terminal:')}
                     conversationId: this.currentConversationId || undefined,
                     mcpState: this.options.mcpState,
                     cliMode: this.statusState.isRawMode ? { enabled: true, streamRaw: true, cwd: process.cwd(), platform: process.platform, hostname: os.hostname(), channel: 'cli' } : undefined,
+                    modelTier: this.options.modelTier,
                 }
             );
 

@@ -20,11 +20,14 @@ export const agentCommand = new Command('agent')
     .option('--gateway', 'Enable gateway relay for remote clients')
     .option('--gateway-interval <ms>', 'Gateway poll interval in milliseconds', '3000')
     .option('--wechat', 'Enable WeChat channel gateway')
+    .option('-t, --tier <tier>', 'Model tier: lite, flash, pro (default: flash)', 'flash')
     .action(async (options) => {
         if (!isAuthenticated()) {
             console.log(chalk.yellow('⚠️  Not logged in. Run `openpaean login` first.\n'));
             process.exit(1);
         }
+
+        const tier = (['lite', 'flash', 'pro'].includes(options.tier) ? options.tier : 'flash') as 'lite' | 'flash' | 'pro';
 
         await runAgentMode({
             mcp: options.mcp !== false,
@@ -34,6 +37,7 @@ export const agentCommand = new Command('agent')
             gatewayEnabled: options.gateway ?? false,
             gatewayPollInterval: parseInt(options.gatewayInterval, 10) || 3000,
             wechatEnabled: options.wechat ?? false,
+            modelTier: tier,
         });
     });
 
@@ -48,6 +52,7 @@ export async function runAgentMode(options: {
     gatewayEnabled?: boolean;
     gatewayPollInterval?: number;
     wechatEnabled?: boolean;
+    modelTier?: 'lite' | 'flash' | 'pro';
 }): Promise<void> {
     if (!isAuthenticated()) {
         console.log(chalk.yellow('⚠️  Not logged in. Run `openpaean login` first.\n'));
@@ -221,6 +226,7 @@ export async function runAgentMode(options: {
                 mcpState,
                 onMcpToolCall,
                 debug,
+                modelTier: options.modelTier,
             });
         } else {
             await startScrollingChat({
@@ -228,6 +234,7 @@ export async function runAgentMode(options: {
                 onMcpToolCall,
                 debug,
                 wechatService,
+                modelTier: options.modelTier,
             });
         }
     } finally {

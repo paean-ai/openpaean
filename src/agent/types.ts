@@ -11,6 +11,7 @@ export type AgentStreamEventType =
     | 'tool_call'
     | 'tool_result'
     | 'mcp_tool_call'
+    | 'grounding'
     | 'done'
     | 'error';
 
@@ -34,7 +35,12 @@ export interface AgentStreamEvent {
         arguments?: Record<string, unknown>;
         argumentsJson?: string;
         conversationId?: string;
-        // Done event
+        // Grounding event (search sources)
+        sources?: Array<{
+            title?: string;
+            url?: string;
+            snippet?: string;
+        }>;
         // Error event
         error?: string;
     };
@@ -53,6 +59,7 @@ export interface AgentStreamCallbacks {
         toolName: string,
         args: Record<string, unknown>
     ) => Promise<McpToolResult>;
+    onGrounding?: (sources: Array<{ title?: string; url?: string; snippet?: string }>) => void;
     onDone?: (conversationId?: string) => void;
     onError?: (error: string) => void;
 }

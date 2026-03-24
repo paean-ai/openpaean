@@ -40,11 +40,14 @@ program
   .option('--gateway', 'Enable gateway relay for remote clients')
   .option('--gateway-interval <ms>', 'Gateway poll interval in milliseconds', '3000')
   .option('--wechat', 'Enable WeChat channel gateway')
+  .option('-t, --tier <tier>', 'Model tier: lite, flash, pro (default: flash)', 'flash')
   .action(async (options) => {
     if (options.config) {
       console.log(getConfigPath());
       return;
     }
+
+    const tier = (['lite', 'flash', 'pro'].includes(options.tier) ? options.tier : 'flash') as 'lite' | 'flash' | 'pro';
 
     await runAgentMode({
       mcp: options.mcp !== false,
@@ -54,6 +57,7 @@ program
       gatewayEnabled: options.gateway ?? false,
       gatewayPollInterval: parseInt(options.gatewayInterval, 10) || 3000,
       wechatEnabled: options.wechat ?? false,
+      modelTier: tier,
     });
   });
 
