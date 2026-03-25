@@ -8,6 +8,7 @@ import os from 'os';
 import { agentService } from '../../agent/service.js';
 import type { McpState, McpToolResult, AgentStreamCallbacks } from '../../agent/types.js';
 import { onLoopPrompt, setAgentBusyChecker } from '../../mcp/loop.js';
+import { onContextAction, consumeCompactSummary } from '../../mcp/context-tools.js';
 
 export interface Message {
     id: string;
@@ -66,6 +67,13 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
     }, []);
 
     const sendMessage = useCallback(async (message: string) => {
+        // If there's a pending compact summary from a previous paean_context_compact
+        // call, prepend it so the new conversation starts with context.
+        const compactSummary = consumeCompactSummary();
+        const effectiveMessage = compactSummary
+            ? `[Context from previous conversation]\n${compactSummary}\n\n[New message]\n${message}`
+            : message;
+
         // Add user message
         const userMessageId = `user-${Date.now()}`;
         setMessages(prev => [...prev, {
@@ -155,7 +163,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
         };
 
         try {
-            const { abort: abortFn } = await agentService.streamMessage(message, callbacks, {
+            const { abort: abortFn } = await agentService.streamMessage(effectiveMessage, callbacks, {
                 conversationId: conversationIdRef.current,
                 mcpState,
                 cliMode: cliMode ? { enabled: true, cwd: process.cwd(), platform: process.platform, hostname: os.hostname(), channel: 'cli' } : undefined,
@@ -184,6 +192,21 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
         });
         return unsubscribe;
     }, [sendMessage]);
+
+    // Subscribe to context management events (clear / compact)
+    useEffect(() => {
+        const unsubscribe = onContextAction((event) => {
+            if (event.action === 'clear') {
+                conversationIdRef.current = undefined;
+            } else if (event.action === 'compact') {
+                // Reset conversationId — the compact summary is stored via
+                // consumeCompactSummary() and will be prepended to the next
+                // user message automatically by sendMessage.
+                conversationIdRef.current = undefined;
+            }
+        });
+        return unsubscribe;
+    }, []);
 
     return {
         messages,

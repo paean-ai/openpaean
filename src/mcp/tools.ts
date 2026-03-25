@@ -31,6 +31,7 @@ import { detectProject, getProjectId } from '../utils/project.js';
 import { getSystemTools, executeSystemTool } from './system.js';
 import { getCliAgentTools, executeCliAgentTool, CLI_AGENT_TOOL_NAMES } from './cli-agents.js';
 import { getLoopToolDefinitions, executeLoopTool, LOOP_TOOL_NAMES } from './loop.js';
+import { getContextToolDefinitions, executeContextTool, CONTEXT_TOOL_NAMES } from './context-tools.js';
 
 /** System tool names that must be routed to executeSystemTool */
 const SYSTEM_TOOL_NAMES = new Set([
@@ -225,6 +226,8 @@ export function getMcpTools(): Tool[] {
     ...getCliAgentTools(),
     // Session-scoped loop tools (local recurring tasks)
     ...getLoopToolDefinitions(),
+    // Context management tools (clear/compact)
+    ...getContextToolDefinitions(),
     // Custom registered tools
     ...Array.from(customToolRegistry.values()).map(({ tool }) => tool),
     // Task management tools
@@ -832,6 +835,10 @@ export async function executeMcpTool(
       // Check if it's a loop tool (local recurring tasks)
       if (LOOP_TOOL_NAMES.has(toolName)) {
         return executeLoopTool(toolName, args);
+      }
+      // Check if it's a context management tool (clear/compact)
+      if (CONTEXT_TOOL_NAMES.has(toolName)) {
+        return executeContextTool(toolName, args);
       }
       // Check if it's a custom registered tool
       const customEntry = customToolRegistry.get(toolName);
