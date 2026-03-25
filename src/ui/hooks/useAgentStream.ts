@@ -183,11 +183,16 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
         setAgentBusyChecker(() => isProcessingRef.current);
     }, []);
 
-    // Subscribe to loop prompt events and auto-send when idle
+    // Subscribe to loop prompt events and auto-send when idle.
+    // IMPORTANT: Only inject the task prompt — never include loop metadata
+    // (schedule, cron expression) in the message sent to the agent.  Including
+    // e.g. "[Loop: 0 * * * *]" causes the agent to misinterpret the cron
+    // expression as a request to create a new loop instead of executing the task.
+    // UI display of the loop label is handled separately.
     useEffect(() => {
         const unsubscribe = onLoopPrompt((event) => {
             if (!isProcessingRef.current) {
-                sendMessage(`[Loop: ${event.schedule}] ${event.prompt}`);
+                sendMessage(`[Scheduled task execution] ${event.prompt}`);
             }
         });
         return unsubscribe;

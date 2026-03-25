@@ -351,12 +351,16 @@ ${info('Terminal:')}
         // Register agent-busy checker for the loop scheduler
         setAgentBusyChecker(() => this.isProcessing);
 
-        // Subscribe to loop prompt events
+        // Subscribe to loop prompt events.
+        // Display the loop label in the terminal for the user, but only send
+        // the task prompt to the agent — never include loop metadata (schedule,
+        // cron expression) in the agent message.  Including e.g.
+        // "[Loop: 0 * * * *]" causes the agent to misinterpret the cron
+        // expression as a request to create a new loop.
         onLoopPrompt((event) => {
             if (!this.isProcessing) {
-                const label = `[Loop: ${event.schedule}]`;
-                console.log(`\n${info(label)}`);
-                this.handleInput(`${label} ${event.prompt}`);
+                console.log(`\n${info(`[Loop: ${event.schedule}]`)}`);
+                this.handleInput(`[Scheduled task execution] ${event.prompt}`);
             }
         });
 
