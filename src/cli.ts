@@ -39,6 +39,7 @@ program
   .option('-m, --message <message>', 'Send a single message to agent')
   .option('--gateway', 'Enable gateway relay for remote clients')
   .option('--gateway-interval <ms>', 'Gateway poll interval in milliseconds', '3000')
+  .option('-n, --session-name <name>', 'Session name visible to web clients (used with --gateway)')
   .option('--wechat', 'Enable WeChat channel gateway')
   .option('-t, --tier <tier>', 'Model tier: lite, flash, pro (default: flash)', 'flash')
   .action(async (options) => {
@@ -56,6 +57,7 @@ program
       message: options.message,
       gatewayEnabled: options.gateway ?? false,
       gatewayPollInterval: parseInt(options.gatewayInterval, 10) || 3000,
+      gatewaySessionName: options.sessionName,
       wechatEnabled: options.wechat ?? false,
       modelTier: tier,
     });

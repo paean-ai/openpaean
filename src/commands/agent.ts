@@ -19,6 +19,7 @@ export const agentCommand = new Command('agent')
     .option('-m, --message <message>', 'Send a single message and exit')
     .option('--gateway', 'Enable gateway relay for remote clients')
     .option('--gateway-interval <ms>', 'Gateway poll interval in milliseconds', '3000')
+    .option('-n, --session-name <name>', 'Session name visible to web clients (used with --gateway)')
     .option('--wechat', 'Enable WeChat channel gateway')
     .option('-t, --tier <tier>', 'Model tier: lite, flash, pro (default: flash)', 'flash')
     .action(async (options) => {
@@ -36,6 +37,7 @@ export const agentCommand = new Command('agent')
             message: options.message,
             gatewayEnabled: options.gateway ?? false,
             gatewayPollInterval: parseInt(options.gatewayInterval, 10) || 3000,
+            gatewaySessionName: options.sessionName,
             wechatEnabled: options.wechat ?? false,
             modelTier: tier,
         });
@@ -51,6 +53,7 @@ export async function runAgentMode(options: {
     message?: string;
     gatewayEnabled?: boolean;
     gatewayPollInterval?: number;
+    gatewaySessionName?: string;
     wechatEnabled?: boolean;
     modelTier?: 'lite' | 'flash' | 'pro';
 }): Promise<void> {
@@ -190,6 +193,7 @@ export async function runAgentMode(options: {
         gatewayService = new GatewayService({
             pollInterval: options.gatewayPollInterval ?? 3000,
             debug,
+            sessionName: options.gatewaySessionName,
         });
         gatewayService.setMcpState(mcpState, onMcpToolCall, mcpClient);
         if (debug) {

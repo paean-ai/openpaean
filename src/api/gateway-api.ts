@@ -123,6 +123,7 @@ export async function registerGatewayInstance(
         workingDirectory?: string;
         platform?: string;
         cliVersion?: string;
+        sessionName?: string;
     } = {}
 ): Promise<{ success: boolean; error?: string }> {
     const client = getClient();
@@ -132,6 +133,7 @@ export async function registerGatewayInstance(
             {
                 sessionId,
                 deviceName,
+                sessionName: meta.sessionName,
                 capabilities: meta.capabilities || ['gateway', 'mcp'],
                 workingDirectory: meta.workingDirectory,
                 platform: meta.platform,

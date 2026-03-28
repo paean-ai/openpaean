@@ -29,6 +29,7 @@ export interface GatewayConfig {
     eventBatchInterval: number;
     requestTimeout: number;
     debug?: boolean;
+    sessionName?: string;
 }
 
 const DEFAULT_CONFIG: GatewayConfig = {
@@ -76,6 +77,7 @@ export class GatewayService extends EventEmitter {
 
     private sessionId?: string;
     private deviceName: string;
+    private sessionName?: string;
 
     constructor(config: Partial<GatewayConfig> = {}) {
         super();
@@ -85,7 +87,10 @@ export class GatewayService extends EventEmitter {
             completedCount: 0,
             failedCount: 0,
         };
-        this.deviceName = `OpenPaean Gateway @ ${os.hostname()}`;
+        this.sessionName = config.sessionName;
+        this.deviceName = this.sessionName
+            ? `${this.sessionName} @ ${os.hostname()}`
+            : `OpenPaean Gateway @ ${os.hostname()}`;
     }
 
     getState(): GatewayState {
@@ -149,6 +154,7 @@ export class GatewayService extends EventEmitter {
             capabilities: ['gateway', 'mcp'],
             workingDirectory: process.cwd(),
             platform: `${os.platform()} ${os.arch()}`,
+            sessionName: this.sessionName,
         });
         if (!result.success) {
             this.log(`Registration failed: ${result.error}`);
@@ -212,6 +218,7 @@ export class GatewayService extends EventEmitter {
                 capabilities: ['gateway', 'mcp'],
                 workingDirectory: process.cwd(),
                 platform: `${os.platform()} ${os.arch()}`,
+                sessionName: this.sessionName,
             }).catch(() => {});
 
             const result = await sendHeartbeat(this.sessionId, {
