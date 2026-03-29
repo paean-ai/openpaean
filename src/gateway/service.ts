@@ -199,6 +199,7 @@ export class GatewayService extends EventEmitter {
 
         this.state = { ...this.state, status: 'idle', currentRequest: undefined };
         this.emit('event', { type: 'stopped' } as GatewayEvent);
+        this.removeAllListeners();
         this.log('Gateway stopped');
     }
 

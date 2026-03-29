@@ -45,6 +45,13 @@ export interface UseAgentStreamReturn {
     abort: () => void;
 }
 
+const MAX_MESSAGE_HISTORY = 100;
+
+function trimMessages(msgs: Message[]): Message[] {
+    if (msgs.length <= MAX_MESSAGE_HISTORY) return msgs;
+    return msgs.slice(msgs.length - MAX_MESSAGE_HISTORY);
+}
+
 export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStreamReturn {
     const { mcpState, onMcpToolCall, cliMode = false, modelTier } = options;
 
@@ -76,11 +83,11 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
 
         // Add user message
         const userMessageId = `user-${Date.now()}`;
-        setMessages(prev => [...prev, {
+        setMessages(prev => trimMessages([...prev, {
             id: userMessageId,
             role: 'user',
             content: message,
-        }]);
+        }]));
 
         setIsProcessing(true);
         setStreamingText('');
@@ -134,11 +141,11 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
 
                 // Add assistant message
                 const assistantMessageId = `assistant-${Date.now()}`;
-                setMessages(prev => [...prev, {
+                setMessages(prev => trimMessages([...prev, {
                     id: assistantMessageId,
                     role: 'assistant',
                     content: responseText,
-                }]);
+                }]));
 
                 setIsProcessing(false);
                 setCurrentToolCall(null);
@@ -149,11 +156,11 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
             onError: (error) => {
                 // Add error as assistant message
                 const errorMessageId = `error-${Date.now()}`;
-                setMessages(prev => [...prev, {
+                setMessages(prev => trimMessages([...prev, {
                     id: errorMessageId,
                     role: 'assistant',
                     content: `Error: ${error}`,
-                }]);
+                }]));
 
                 setIsProcessing(false);
                 setCurrentToolCall(null);

@@ -29,6 +29,7 @@ export interface ContextActionEvent {
 // ============================================
 
 const contextEmitter = new EventEmitter();
+contextEmitter.setMaxListeners(20);
 
 /**
  * Register a callback that fires when the agent requests a context action.

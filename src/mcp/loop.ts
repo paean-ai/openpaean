@@ -68,6 +68,7 @@ export interface LoopPromptEvent {
 }
 
 const loopEmitter = new EventEmitter();
+loopEmitter.setMaxListeners(20);
 
 /**
  * Register a callback that fires whenever a loop job wants to inject a

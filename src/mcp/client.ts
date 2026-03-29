@@ -318,12 +318,15 @@ export class McpClient {
             connected: false,
         };
 
-        // Collect stderr for debugging
+        // Collect stderr for debugging (capped to prevent unbounded growth)
         let stderrBuffer = '';
         if (proc.stderr) {
             proc.stderr.on('data', (data) => {
                 const text = data.toString();
                 stderrBuffer += text;
+                if (stderrBuffer.length > 2048) {
+                    stderrBuffer = stderrBuffer.slice(-2048);
+                }
                 this.log(`[${serverName} stderr] ${text.trim()}`);
             });
         }
@@ -620,15 +623,38 @@ export class McpClient {
     }
 
     /**
-     * Disconnect from a server
+     * Disconnect from a server with proper cleanup
      */
     async disconnect(serverName: string): Promise<void> {
         const instance = this.servers.get(serverName);
         if (!instance) return;
 
+        // Reject any pending requests so their callers don't hang
+        for (const [, pending] of instance.pendingRequests) {
+            pending.reject(new Error(`Server "${serverName}" disconnecting`));
+        }
+        instance.pendingRequests.clear();
+
+        // Close the readline interface (stops reading stdout)
+        try {
+            instance.stdout.close();
+        } catch {
+            // Ignore errors during cleanup
+        }
+
+        // Remove event listeners to prevent memory leaks
+        instance.process.removeAllListeners('error');
+        instance.process.removeAllListeners('exit');
+        if (instance.process.stderr) {
+            instance.process.stderr.removeAllListeners('data');
+        }
+
+        // Kill the process
         if (instance.process.exitCode === null) {
             instance.process.kill();
         }
+
+        instance.connected = false;
         this.servers.delete(serverName);
     }
 
