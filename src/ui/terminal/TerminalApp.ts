@@ -359,6 +359,9 @@ ${info('Terminal:')}
         // expression as a request to create a new loop.
         onLoopPrompt((event) => {
             if (!this.isProcessing) {
+                if (event.clear) {
+                    this.currentConversationId = null;
+                }
                 console.log(`\n${info(`[Loop: ${event.schedule}]`)}`);
                 this.handleInput(`[Scheduled task execution] ${event.prompt}`);
             }

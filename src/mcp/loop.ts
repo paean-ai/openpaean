@@ -33,6 +33,8 @@ export interface LoopJob {
   /** Natural-language prompt injected into the agent conversation */
   prompt: string;
   cwd?: string;
+  /** If true, clear conversation context before each loop iteration */
+  clear?: boolean;
   createdAt: string;
   lastRunAt: string | null;
   nextRunAt: string | null;
@@ -65,6 +67,8 @@ export interface LoopPromptEvent {
   prompt: string;
   cwd?: string;
   schedule: string;
+  /** If true, the consumer should clear conversation context before processing */
+  clear?: boolean;
 }
 
 const loopEmitter = new EventEmitter();
@@ -265,6 +269,7 @@ async function executeJob(job: InternalLoopJob): Promise<void> {
     prompt: job.prompt,
     cwd: job.cwd,
     schedule: job.schedule,
+    clear: job.clear,
   } satisfies LoopPromptEvent);
 
   job.lastResult = {
@@ -323,6 +328,7 @@ function toPublicJob(job: InternalLoopJob): LoopJob {
     schedule: job.schedule,
     prompt: job.prompt,
     cwd: job.cwd,
+    clear: job.clear,
     createdAt: job.createdAt,
     lastRunAt: job.lastRunAt,
     nextRunAt: job.nextRunAt,
@@ -368,6 +374,13 @@ export function getLoopToolDefinitions(): Tool[] {
           cwd: {
             type: 'string',
             description: 'Working directory context for the prompt (optional)',
+          },
+          clear: {
+            type: 'boolean',
+            description:
+              'If true, clear conversation context before each loop iteration. ' +
+              'This ensures each run starts with a fresh context, avoiding interference ' +
+              'from accumulated history. Recommended for long-running or independent tasks.',
           },
         },
         required: ['schedule', 'prompt'],
@@ -468,6 +481,7 @@ export async function executeLoopTool(
       const schedule = args.schedule as string;
       const prompt = args.prompt as string;
       const cwd = args.cwd as string | undefined;
+      const clear = args.clear as boolean | undefined;
 
       if (!schedule || !prompt) {
         return { success: false, error: 'schedule and prompt are required' };
@@ -496,6 +510,7 @@ export async function executeLoopTool(
         schedule,
         prompt,
         cwd,
+        clear: clear || undefined,
         createdAt: new Date().toISOString(),
         lastRunAt: null,
         nextRunAt: null,

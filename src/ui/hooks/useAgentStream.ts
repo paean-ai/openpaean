@@ -199,6 +199,10 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
     useEffect(() => {
         const unsubscribe = onLoopPrompt((event) => {
             if (!isProcessingRef.current) {
+                if (event.clear) {
+                    conversationIdRef.current = undefined;
+                    setConversationId(undefined);
+                }
                 sendMessage(`[Scheduled task execution] ${event.prompt}`);
             }
         });
